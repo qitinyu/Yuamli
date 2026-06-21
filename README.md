@@ -61,8 +61,8 @@ npm run dev
 ```
 
 服务启动后：
-- 评论系统 API：`http://localhost:3456`
-- 健康检查：`http://localhost:3456/api/health`
+- 评论系统 API：`http://localhost:1234`
+- 健康检查：`http://localhost:1234/api/health`
 
 ### 环境配置
 
@@ -85,7 +85,7 @@ JWT_SECRET=your_jwt_secret
    - **Application name**: Yuamli Comment System
    - **Homepage URL**: `http://localhost:1234`
    - **Authorization callback URL**: `http://localhost:1234/api/auth/github/callback`
-   - **YUAMLI_FRONTEND_URL**:'http://localhost:3456'
+   - **YUAMLI_FRONTEND_URL**:'http://localhost:1234'
 4. 获取 `Client ID` 和 `Client Secret` 填入 `.env`
 
 
