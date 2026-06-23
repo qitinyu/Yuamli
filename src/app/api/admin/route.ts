@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const config = getConfig();
+    const config = await getConfig();
 
     if (!verifyPassword(password, config.adminPassword)) {
       return NextResponse.json(
@@ -49,10 +49,9 @@ export async function GET() {
       );
     }
 
-    const users = getUsers();
-    const config = getConfig();
+    const users = await getUsers();
+    const config = await getConfig();
 
-    // Mask admin password
     const safeConfig = {
       ...config,
       adminPassword: "******",

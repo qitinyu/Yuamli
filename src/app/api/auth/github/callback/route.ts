@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getUserByGithubId, addUser, updateUser } from "@/lib/storage";
+import { createSession } from "@/lib/auth";
 
 // GitHub OAuth callback — fully server-side: exchange code, set cookie, redirect
 export async function GET(request: NextRequest) {
@@ -24,7 +26,10 @@ export async function GET(request: NextRequest) {
   if (!clientId || !clientSecret) {
     return NextResponse.redirect(
       new URL(
-        "/?github_error=" + encodeURIComponent("GitHub OAuth 未配置，请在 .env.local 中设置 GITHUB_CLIENT_ID 和 GITHUB_CLIENT_SECRET"),
+        "/?github_error=" +
+          encodeURIComponent(
+            "GitHub OAuth 未配置，请设置 GITHUB_CLIENT_ID 和 GITHUB_CLIENT_SECRET 环境变量"
+          ),
         request.url
       )
     );
@@ -53,7 +58,10 @@ export async function GET(request: NextRequest) {
     if (!tokenRes.ok || tokenData.error) {
       return NextResponse.redirect(
         new URL(
-          "/?github_error=" + encodeURIComponent(tokenData.error_description || tokenData.error || "授权失败"),
+          "/?github_error=" +
+            encodeURIComponent(
+              tokenData.error_description || tokenData.error || "授权失败"
+            ),
           request.url
         )
       );
@@ -62,7 +70,10 @@ export async function GET(request: NextRequest) {
     const accessToken = tokenData.access_token;
     if (!accessToken) {
       return NextResponse.redirect(
-        new URL("/?github_error=" + encodeURIComponent("未获取到 Access Token"), request.url)
+        new URL(
+          "/?github_error=" + encodeURIComponent("未获取到 Access Token"),
+          request.url
+        )
       );
     }
 
@@ -73,17 +84,19 @@ export async function GET(request: NextRequest) {
 
     if (!userRes.ok) {
       return NextResponse.redirect(
-        new URL("/?github_error=" + encodeURIComponent("获取用户信息失败"), request.url)
+        new URL(
+          "/?github_error=" + encodeURIComponent("获取用户信息失败"),
+          request.url
+        )
       );
     }
 
     const ghUser = await userRes.json();
-    const { getUserByGithubId, addUser } = await import("@/lib/storage");
     const githubId = "gh_" + ghUser.id;
     const now = new Date().toISOString();
 
     // Step 3: Find or create local user
-    let user = getUserByGithubId(githubId);
+    let user = await getUserByGithubId(githubId);
 
     if (!user) {
       user = {
@@ -94,25 +107,14 @@ export async function GET(request: NextRequest) {
         type: "github" as const,
         createdAt: now,
       };
-      addUser(user);
-    } else {
-      // Update avatar if changed
-      if (ghUser.avatar_url && user.avatar !== ghUser.avatar_url) {
-        const { updateConfig } = await import("@/lib/storage");
-        const users = (await import("@/lib/storage")).getUsers();
-        const idx = users.findIndex((u) => u.id === githubId);
-        if (idx !== -1) {
-          users[idx].avatar = ghUser.avatar_url;
-          if (ghUser.login) users[idx].name = ghUser.login;
-          const fs = await import("fs");
-          const path = await import("path");
-          fs.writeFileSync(
-            path.join(process.cwd(), "data", "users.json"),
-            JSON.stringify(users, null, 2),
-            "utf-8"
-          );
-        }
-      }
+      await addUser(user);
+    } else if (ghUser.avatar_url && user.avatar !== ghUser.avatar_url) {
+      await updateUser(githubId, {
+        avatar: ghUser.avatar_url,
+        ...(ghUser.login ? { name: ghUser.login } : {}),
+      });
+      user.avatar = ghUser.avatar_url;
+      if (ghUser.login) user.name = ghUser.login;
     }
 
     // Step 4: Set session cookie on redirect response
@@ -141,7 +143,7 @@ export async function GET(request: NextRequest) {
     });
 
     return response;
-  } catch (err) {
+  } catch {
     return NextResponse.redirect(
       new URL(
         "/?github_error=" + encodeURIComponent("登录失败，请重试"),

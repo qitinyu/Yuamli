@@ -7,15 +7,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { name, qq, email, password } = body;
 
-    // Validate name
-    if (!name || typeof name !== "string" || name.trim().length < 1 || name.trim().length > 20) {
+    if (
+      !name ||
+      typeof name !== "string" ||
+      name.trim().length < 1 ||
+      name.trim().length > 20
+    ) {
       return NextResponse.json(
         { ok: false, error: "昵称需 1-20 个字符" },
         { status: 400 }
       );
     }
 
-    // Validate QQ (required)
     const qqStr = qq ? String(qq).trim() : "";
     if (!qqStr || !/^\d{5,12}$/.test(qqStr)) {
       return NextResponse.json(
@@ -24,7 +27,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate email (optional)
     const emailStr = email ? String(email).trim().toLowerCase() : "";
     if (emailStr) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -36,7 +38,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Validate password
     if (!password || typeof password !== "string" || password.length < 6) {
       return NextResponse.json(
         { ok: false, error: "密码至少 6 个字符" },
@@ -44,8 +45,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if QQ already exists
-    const existingQQ = getUserByQQ(qqStr);
+    const existingQQ = await getUserByQQ(qqStr);
     if (existingQQ) {
       return NextResponse.json(
         { ok: false, error: "该 QQ 号已注册" },
@@ -53,9 +53,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if email already exists (if provided)
     if (emailStr) {
-      const existingEmail = getUserByEmail(emailStr);
+      const existingEmail = await getUserByEmail(emailStr);
       if (existingEmail) {
         return NextResponse.json(
           { ok: false, error: "该邮箱已注册" },
@@ -78,7 +77,7 @@ export async function POST(request: NextRequest) {
       createdAt: now,
     };
 
-    addUser(user);
+    await addUser(user);
 
     const sessionUser = {
       id: user.id,

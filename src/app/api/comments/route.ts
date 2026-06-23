@@ -3,7 +3,7 @@ import { getComments, buildCommentTree, type Comment } from "@/lib/storage";
 
 export async function GET() {
   try {
-    const allComments = getComments();
+    const allComments = await getComments();
 
     // Build recursive tree
     const tree = buildCommentTree(allComments, null);
@@ -29,7 +29,6 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    // Require session
     const { getSession } = await import("@/lib/auth");
     const session = await getSession();
     if (!session) {
@@ -61,9 +60,7 @@ export async function POST(request: NextRequest) {
         type: session.type,
       },
       parentId: parentId || null,
-      replyTo: replyTo
-        ? { id: replyTo.id, name: replyTo.name }
-        : null,
+      replyTo: replyTo ? { id: replyTo.id, name: replyTo.name } : null,
       isPinned: false,
       isFeatured: false,
       createdAt: now,
@@ -71,7 +68,7 @@ export async function POST(request: NextRequest) {
     };
 
     const { addComment } = await import("@/lib/storage");
-    const saved = addComment(comment);
+    const saved = await addComment(comment);
 
     return NextResponse.json({ ok: true, comment: saved });
   } catch {

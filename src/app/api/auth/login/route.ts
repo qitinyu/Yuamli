@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserByQQ, getUserByEmail, addUser } from "@/lib/storage";
-import { hashPassword, createSession } from "@/lib/auth";
+import { getUserByQQ, getUserByEmail } from "@/lib/storage";
+import { verifyPassword, createSession } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,8 +14,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prioritize QQ lookup, then email
-    const user = getUserByQQ(identifier.trim()) || getUserByEmail(identifier.trim().toLowerCase());
+    const user =
+      (await getUserByQQ(identifier.trim())) ||
+      (await getUserByEmail(identifier.trim().toLowerCase()));
 
     if (!user) {
       return NextResponse.json(
@@ -24,8 +25,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify password
-    const valid = password && user.password ? (await import("@/lib/auth")).verifyPassword(password, user.password) : false;
+    const valid = password && user.password
+      ? verifyPassword(password, user.password)
+      : false;
     if (!valid) {
       return NextResponse.json(
         { ok: false, error: "密码错误，请检查后重试" },
@@ -33,16 +35,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Session: 30 days if "remember me", else 7 days
     const maxAge = remember ? 60 * 60 * 24 * 30 : undefined;
 
-    await createSession({
-      id: user.id,
-      name: user.name,
-      avatar: user.avatar,
-      type: user.type,
-      email: user.email,
-    }, maxAge);
+    await createSession(
+      {
+        id: user.id,
+        name: user.name,
+        avatar: user.avatar,
+        type: user.type,
+        email: user.email,
+      },
+      maxAge
+    );
 
     return NextResponse.json({
       ok: true,

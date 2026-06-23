@@ -17,10 +17,11 @@ export async function POST(request: NextRequest) {
 
     const updates: Record<string, unknown> = {};
     if (email !== undefined) updates.adminEmail = email;
-    if (enabled !== undefined && typeof enabled === "boolean") updates.notifyEnabled = enabled;
+    if (enabled !== undefined && typeof enabled === "boolean")
+      updates.notifyEnabled = enabled;
     if (template !== undefined) updates.notifyTemplate = template;
 
-    const newConfig = updateConfig(updates);
+    const newConfig = await updateConfig(updates as any);
 
     return NextResponse.json({ ok: true, config: newConfig });
   } catch {
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET() {
   try {
-    const config = getConfig();
+    const config = await getConfig();
 
     return NextResponse.json({
       adminEmail: config.adminEmail,

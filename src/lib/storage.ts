@@ -1,7 +1,4 @@
-import fs from "fs";
-import path from "path";
-
-const DATA_DIR = path.join(process.cwd(), "data");
+import { readData, writeData, DEFAULT_CONFIG } from "./adapter";
 
 export interface CommentAuthor {
   id: string;
@@ -42,71 +39,77 @@ export interface SiteConfig {
   siteName: string;
 }
 
-function readJSON<T>(filename: string): T {
-  const filePath = path.join(DATA_DIR, filename);
-  const raw = fs.readFileSync(filePath, "utf-8");
-  return JSON.parse(raw) as T;
-}
-
-function writeJSON<T>(filename: string, data: T): void {
-  const filePath = path.join(DATA_DIR, filename);
-  fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
-}
-
 // ==================== Comments ====================
 
-export function getComments(): Comment[] { return readJSON<Comment[]>("comments.json"); }
-export function getCommentById(id: string): Comment | undefined { return getComments().find((c) => c.id === id); }
+export async function getComments(): Promise<Comment[]> {
+  return readData<Comment[]>("comments", []);
+}
 
-export function addComment(comment: Comment): Comment {
-  const comments = getComments();
+export async function getCommentById(id: string): Promise<Comment | undefined> {
+  const comments = await getComments();
+  return comments.find((c) => c.id === id);
+}
+
+export async function addComment(comment: Comment): Promise<Comment> {
+  const comments = await getComments();
   comments.unshift(comment);
-  writeJSON("comments.json", comments);
+  await writeData("comments", comments);
   return comment;
 }
 
-export function updateComment(id: string, updates: Partial<Omit<Comment, "id" | "author" | "createdAt">>): Comment | null {
-  const comments = getComments();
+export async function updateComment(
+  id: string,
+  updates: Partial<Omit<Comment, "id" | "author" | "createdAt">>
+): Promise<Comment | null> {
+  const comments = await getComments();
   const index = comments.findIndex((c) => c.id === id);
   if (index === -1) return null;
-  comments[index] = { ...comments[index], ...updates, updatedAt: new Date().toISOString() };
-  writeJSON("comments.json", comments);
+  comments[index] = {
+    ...comments[index],
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  };
+  await writeData("comments", comments);
   return comments[index];
 }
 
-export function deleteComment(id: string): boolean {
-  const comments = getComments();
+export async function deleteComment(id: string): Promise<boolean> {
+  const comments = await getComments();
   const idsToRemove = new Set<string>();
   const collectIds = (parentId: string) => {
     idsToRemove.add(parentId);
-    comments.filter((c) => c.parentId === parentId).forEach((c) => collectIds(c.id));
+    comments
+      .filter((c) => c.parentId === parentId)
+      .forEach((c) => collectIds(c.id));
   };
   collectIds(id);
   const filtered = comments.filter((c) => !idsToRemove.has(c.id));
   if (filtered.length === comments.length) return false;
-  writeJSON("comments.json", filtered);
+  await writeData("comments", filtered);
   return true;
 }
 
-// Batch operations
-export function batchDeleteComments(ids: string[]): number {
-  const comments = getComments();
-  const idSet = new Set(ids);
-  // Also collect all child IDs recursively
+export async function batchDeleteComments(ids: string[]): Promise<number> {
+  const comments = await getComments();
   const allIdsToRemove = new Set<string>();
   const collectChildren = (parentId: string) => {
     allIdsToRemove.add(parentId);
-    comments.filter((c) => c.parentId === parentId).forEach((c) => collectChildren(c.id));
+    comments
+      .filter((c) => c.parentId === parentId)
+      .forEach((c) => collectChildren(c.id));
   };
   ids.forEach((id) => collectChildren(id));
   const filtered = comments.filter((c) => !allIdsToRemove.has(c.id));
   const removed = comments.length - filtered.length;
-  if (removed > 0) writeJSON("comments.json", filtered);
+  if (removed > 0) await writeData("comments", filtered);
   return removed;
 }
 
-export function batchUpdateComments(ids: string[], updates: Partial<Omit<Comment, "id" | "author" | "createdAt">>): number {
-  const comments = getComments();
+export async function batchUpdateComments(
+  ids: string[],
+  updates: Partial<Omit<Comment, "id" | "author" | "createdAt">>
+): Promise<number> {
+  const comments = await getComments();
   const idSet = new Set(ids);
   let count = 0;
   const now = new Date().toISOString();
@@ -116,15 +119,20 @@ export function batchUpdateComments(ids: string[], updates: Partial<Omit<Comment
       count++;
     }
   }
-  if (count > 0) writeJSON("comments.json", comments);
+  if (count > 0) await writeData("comments", comments);
   return count;
 }
 
-// Recursive tree builder for unlimited nesting
-export function buildCommentTree(comments: Comment[], parentId: string | null): Comment[] {
+export function buildCommentTree(
+  comments: Comment[],
+  parentId: string | null
+): Comment[] {
   return comments
     .filter((c) => c.parentId === parentId)
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    .sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    )
     .map((c) => ({
       ...c,
       replies: buildCommentTree(comments, c.id),
@@ -133,33 +141,68 @@ export function buildCommentTree(comments: Comment[], parentId: string | null): 
 
 // ==================== Users ====================
 
-export function getUsers(): User[] { return readJSON<User[]>("users.json"); }
-export function getUserById(id: string): User | undefined { return getUsers().find((u) => u.id === id); }
-export function getUserByEmail(email: string): User | undefined { return getUsers().find((u) => u.email === email); }
-export function getUserByQQ(qq: string): User | undefined { return getUsers().find((u) => u.qq === qq); }
-export function getUserByGithubId(id: string): User | undefined { return getUsers().find((u) => u.type === "github" && u.id === id); }
+export async function getUsers(): Promise<User[]> {
+  return readData<User[]>("users", []);
+}
 
-export function addUser(user: User): User {
-  const users = getUsers();
+export async function getUserById(id: string): Promise<User | undefined> {
+  const users = await getUsers();
+  return users.find((u) => u.id === id);
+}
+
+export async function getUserByEmail(
+  email: string
+): Promise<User | undefined> {
+  const users = await getUsers();
+  return users.find((u) => u.email === email);
+}
+
+export async function getUserByQQ(qq: string): Promise<User | undefined> {
+  const users = await getUsers();
+  return users.find((u) => u.qq === qq);
+}
+
+export async function getUserByGithubId(
+  id: string
+): Promise<User | undefined> {
+  const users = await getUsers();
+  return users.find((u) => u.type === "github" && u.id === id);
+}
+
+export async function addUser(user: User): Promise<User> {
+  const users = await getUsers();
   users.push(user);
-  writeJSON("users.json", users);
+  await writeData("users", users);
   return user;
+}
+
+export async function updateUser(
+  id: string,
+  updates: Partial<Omit<User, "id" | "createdAt">>
+): Promise<User | null> {
+  const users = await getUsers();
+  const index = users.findIndex((u) => u.id === id);
+  if (index === -1) return null;
+  users[index] = { ...users[index], ...updates };
+  await writeData("users", users);
+  return users[index];
 }
 
 // ==================== Config ====================
 
-export function getConfig(): SiteConfig {
-  const config = readJSON<SiteConfig>("config.json");
-  // Ensure notifyTemplate exists (backward compatibility)
+export async function getConfig(): Promise<SiteConfig> {
+  const config = await readData<SiteConfig>("config", DEFAULT_CONFIG);
   if (!config.notifyTemplate) {
-    config.notifyTemplate = "您收到一条新留言：\n\n{author}：{content}\n\n时间：{time}";
+    config.notifyTemplate = DEFAULT_CONFIG.notifyTemplate;
   }
   return config;
 }
 
-export function updateConfig(updates: Partial<SiteConfig>): SiteConfig {
-  const config = getConfig();
+export async function updateConfig(
+  updates: Partial<SiteConfig>
+): Promise<SiteConfig> {
+  const config = await getConfig();
   const newConfig = { ...config, ...updates };
-  writeJSON("config.json", newConfig);
+  await writeData("config", newConfig);
   return newConfig;
 }

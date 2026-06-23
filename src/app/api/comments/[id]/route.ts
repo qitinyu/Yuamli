@@ -9,7 +9,7 @@ export async function PUT(
   try {
     const { id } = await params;
 
-    const existingComment = getCommentById(id);
+    const existingComment = await getCommentById(id);
     if (!existingComment) {
       return NextResponse.json(
         { ok: false, message: "Comment not found" },
@@ -22,7 +22,6 @@ export async function PUT(
 
     const updates: Record<string, unknown> = {};
 
-    // If content is provided, require session (author or admin)
     if (content !== undefined) {
       const session = await getSession();
       const admin = await isAdminAuthenticated();
@@ -43,7 +42,6 @@ export async function PUT(
       }
     }
 
-    // If isPinned or isFeatured, require admin auth only
     if (isPinned !== undefined || isFeatured !== undefined) {
       const admin = await isAdminAuthenticated();
       if (!admin) {
@@ -52,15 +50,11 @@ export async function PUT(
           { status: 403 }
         );
       }
-      if (isPinned !== undefined) {
-        updates.isPinned = Boolean(isPinned);
-      }
-      if (isFeatured !== undefined) {
-        updates.isFeatured = Boolean(isFeatured);
-      }
+      if (isPinned !== undefined) updates.isPinned = Boolean(isPinned);
+      if (isFeatured !== undefined) updates.isFeatured = Boolean(isFeatured);
     }
 
-    const updated = updateComment(id, updates);
+    const updated = await updateComment(id, updates);
     if (!updated) {
       return NextResponse.json(
         { ok: false, message: "Comment not found" },
@@ -84,7 +78,6 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Require admin auth OR comment author session
     const session = await getSession();
     const isAdmin = await isAdminAuthenticated();
 
@@ -95,9 +88,8 @@ export async function DELETE(
       );
     }
 
-    // If not admin, check if the session user is the comment author
     if (!isAdmin) {
-      const existingComment = getCommentById(id);
+      const existingComment = await getCommentById(id);
       if (!existingComment || existingComment.author.id !== session!.id) {
         return NextResponse.json(
           { ok: false, message: "You can only delete your own comments" },
@@ -106,7 +98,7 @@ export async function DELETE(
       }
     }
 
-    const deleted = deleteComment(id);
+    const deleted = await deleteComment(id);
     if (!deleted) {
       return NextResponse.json(
         { ok: false, message: "Comment not found" },

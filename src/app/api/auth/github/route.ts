@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserByGithubId, addUser } from "@/lib/storage";
+import { getUserByGithubId, addUser, updateUser } from "@/lib/storage";
 import { createSession } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
@@ -19,12 +19,15 @@ export async function POST(request: NextRequest) {
 
     if (!clientId || !clientSecret) {
       return NextResponse.json(
-        { ok: false, error: "GitHub OAuth 未配置，请在 .env 中设置 GITHUB_CLIENT_ID 和 GITHUB_CLIENT_SECRET" },
+        {
+          ok: false,
+          error:
+            "GitHub OAuth 未配置，请在环境变量中设置 GITHUB_CLIENT_ID 和 GITHUB_CLIENT_SECRET",
+        },
         { status: 500 }
       );
     }
 
-    // Step 1: Exchange code for access token
     const tokenRes = await fetch(
       "https://github.com/login/oauth/access_token",
       {
@@ -33,11 +36,7 @@ export async function POST(request: NextRequest) {
           "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify({
-          client_id: clientId,
-          client_secret: clientSecret,
-          code,
-        }),
+        body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code }),
       }
     );
 
@@ -45,7 +44,12 @@ export async function POST(request: NextRequest) {
 
     if (!tokenRes.ok || tokenData.error) {
       return NextResponse.json(
-        { ok: false, error: "GitHub 授权失败: " + (tokenData.error_description || tokenData.error) },
+        {
+          ok: false,
+          error:
+            "GitHub 授权失败: " +
+            (tokenData.error_description || tokenData.error),
+        },
         { status: 401 }
       );
     }
@@ -58,7 +62,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 2: Get GitHub user profile
     const userRes = await fetch("https://api.github.com/user", {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
@@ -74,8 +77,7 @@ export async function POST(request: NextRequest) {
     const githubId = "gh_" + ghUser.id;
     const now = new Date().toISOString();
 
-    // Step 3: Find or create local user
-    let user = getUserByGithubId(githubId);
+    let user = await getUserByGithubId(githubId);
 
     if (!user) {
       user = {
@@ -86,10 +88,17 @@ export async function POST(request: NextRequest) {
         type: "github" as const,
         createdAt: now,
       };
-      addUser(user);
+      await addUser(user);
+    } else if (ghUser.avatar_url && user.avatar !== ghUser.avatar_url) {
+      // Update avatar/name on re-login
+      await updateUser(githubId, {
+        avatar: ghUser.avatar_url,
+        ...(ghUser.login ? { name: ghUser.login } : {}),
+      });
+      user.avatar = ghUser.avatar_url;
+      if (ghUser.login) user.name = ghUser.login;
     }
 
-    // Step 4: Create session
     const sessionUser = {
       id: user.id,
       name: user.name,

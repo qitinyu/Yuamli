@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth";
-import { getComments, batchDeleteComments, batchUpdateComments } from "@/lib/storage";
+import {
+  getComments,
+  batchDeleteComments,
+  batchUpdateComments,
+} from "@/lib/storage";
 
-// GET: List all comments for admin management
 export async function GET() {
   try {
     const admin = await isAdminAuthenticated();
@@ -13,9 +16,11 @@ export async function GET() {
       );
     }
 
-    const comments = getComments();
-    // Sort by createdAt desc
-    comments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const comments = await getComments();
+    comments.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
 
     return NextResponse.json({ comments });
   } catch {
@@ -26,7 +31,6 @@ export async function GET() {
   }
 }
 
-// POST: Batch operations on comments
 export async function POST(request: NextRequest) {
   try {
     const admin = await isAdminAuthenticated();
@@ -49,23 +53,23 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case "batch_delete": {
-        const count = batchDeleteComments(ids);
+        const count = await batchDeleteComments(ids);
         return NextResponse.json({ ok: true, message: `已删除 ${count} 条留言` });
       }
       case "batch_pin": {
-        const count = batchUpdateComments(ids, { isPinned: true });
+        const count = await batchUpdateComments(ids, { isPinned: true });
         return NextResponse.json({ ok: true, message: `已置顶 ${count} 条留言` });
       }
       case "batch_unpin": {
-        const count = batchUpdateComments(ids, { isPinned: false });
+        const count = await batchUpdateComments(ids, { isPinned: false });
         return NextResponse.json({ ok: true, message: `已取消置顶 ${count} 条留言` });
       }
       case "batch_feature": {
-        const count = batchUpdateComments(ids, { isFeatured: true });
+        const count = await batchUpdateComments(ids, { isFeatured: true });
         return NextResponse.json({ ok: true, message: `已设为精华 ${count} 条留言` });
       }
       case "batch_unfeature": {
-        const count = batchUpdateComments(ids, { isFeatured: false });
+        const count = await batchUpdateComments(ids, { isFeatured: false });
         return NextResponse.json({ ok: true, message: `已取消精华 ${count} 条留言` });
       }
       default:
