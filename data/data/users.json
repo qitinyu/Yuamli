@@ -1,0 +1,28 @@
+[
+  {
+    "id": "04657b3c-afa2-4a57-844c-733585e90e87",
+    "name": "测试用户",
+    "email": "test@yuamli.com",
+    "avatar": "/default-avatar.png",
+    "type": "guest",
+    "password": "nzmv6r",
+    "createdAt": "2026-06-22T06:56:06.046Z"
+  },
+  {
+    "id": "gh_rc1l16",
+    "name": "GitHub User",
+    "avatar": "https://github.com/github.png",
+    "email": "",
+    "type": "github",
+    "createdAt": "2026-06-22T11:04:10.806Z"
+  },
+  {
+    "id": "e018fa99-62c1-4dab-9556-1a8bf628d3e9",
+    "name": "yuqi",
+    "email": "484894496@qq.com",
+    "avatar": "/default-avatar.png",
+    "type": "guest",
+    "password": "us79fg",
+    "createdAt": "2026-06-22T11:14:59.074Z"
+  }
+]

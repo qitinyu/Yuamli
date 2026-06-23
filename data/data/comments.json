@@ -1,0 +1,34 @@
+[
+  {
+    "id": "e0b57bda-64f0-4eac-8b6a-bb0c8f8eaafb",
+    "content": "浏览器测试留言",
+    "author": {
+      "id": "04657b3c-afa2-4a57-844c-733585e90e87",
+      "name": "测试用户",
+      "avatar": "/default-avatar.png",
+      "type": "guest"
+    },
+    "parentId": null,
+    "replyTo": null,
+    "isPinned": true,
+    "isFeatured": false,
+    "createdAt": "2026-06-22T07:00:41.160Z",
+    "updatedAt": "2026-06-22T07:06:18.401Z"
+  },
+  {
+    "id": "f0517c15-843c-49f0-ba49-1b58c84727f9",
+    "content": "API测试留言，**支持Markdown**",
+    "author": {
+      "id": "04657b3c-afa2-4a57-844c-733585e90e87",
+      "name": "测试用户",
+      "avatar": "/default-avatar.png",
+      "type": "guest"
+    },
+    "parentId": null,
+    "replyTo": null,
+    "isPinned": false,
+    "isFeatured": false,
+    "createdAt": "2026-06-22T06:57:22.305Z",
+    "updatedAt": "2026-06-22T06:57:22.305Z"
+  }
+]
