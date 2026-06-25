@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   keywords: ["Yuamli", "comment system", "guestbook", "留言系统"],
   authors: [{ name: "Yuamli" }],
   icons: {
-    icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    icon: "/public/home.ico",
   },
 };
 

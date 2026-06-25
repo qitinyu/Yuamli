@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       name.trim().length > 20
     ) {
       return NextResponse.json(
-        { ok: false, error: "昵称需 1-20 个字符" },
+        { ok: false, error: "昵称需 1-5 个字符" },
         { status: 400 }
       );
     }
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     const qqStr = qq ? String(qq).trim() : "";
     if (!qqStr || !/^\d{5,12}$/.test(qqStr)) {
       return NextResponse.json(
-        { ok: false, error: "QQ 号为必填项，需 5-12 位数字" },
+        { ok: false, error: "账号为必填项，需 9-12 位数字" },
         { status: 400 }
       );
     }
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     const existingQQ = await getUserByQQ(qqStr);
     if (existingQQ) {
       return NextResponse.json(
-        { ok: false, error: "该 QQ 号已注册" },
+        { ok: false, error: "该账号已注册" },
         { status: 409 }
       );
     }
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       const existingEmail = await getUserByEmail(emailStr);
       if (existingEmail) {
         return NextResponse.json(
-          { ok: false, error: "该邮箱已注册" },
+          { ok: false, error: "该邮箱已注册,请使用其他邮箱注册" },
           { status: 409 }
         );
       }
