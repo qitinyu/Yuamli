@@ -86,7 +86,7 @@ export default function Home() {
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <MessageCircleHeart className="h-5 w-5 text-emerald-600" />
-            <h1 className="text-base font-semibold tracking-tight">留言板</h1>
+            <h1 className="text-base font-semibold tracking-tight">拾遗</h1>
             <Badge variant="secondary" className="text-[10px] h-4 font-normal">v1.0.0</Badge>
           </div>
           <div className="flex items-center gap-2">
