@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUsers, getConfig, updateConfig } from "@/lib/storage";
 import {
-  setAdminAuthenticated,
-  isAdminAuthenticated,
-  clearAdminAuth,
   verifyPassword,
+  isAdminAuthenticated,
+  adminAuthResponse,
+  clearAdminResponse,
 } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
@@ -28,9 +28,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await setAdminAuthenticated();
-
-    return NextResponse.json({ ok: true });
+    return adminAuthResponse({ ok: true });
   } catch {
     return NextResponse.json(
       { ok: false, message: "Internal server error" },
@@ -76,9 +74,7 @@ export async function DELETE() {
       );
     }
 
-    await clearAdminAuth();
-
-    return NextResponse.json({ ok: true });
+    return clearAdminResponse({ ok: true });
   } catch {
     return NextResponse.json(
       { ok: false, message: "Internal server error" },

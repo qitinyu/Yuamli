@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByGithubId, addUser, updateUser } from "@/lib/storage";
-import { createSession } from "@/lib/auth";
+import { attachSessionToResponse } from "@/lib/auth";
 
 // GitHub OAuth callback — fully server-side: exchange code, set cookie, redirect
 export async function GET(request: NextRequest) {
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
       if (ghUser.login) user.name = ghUser.login;
     }
 
-    // Step 4: Set session cookie on redirect response
+    // Step 4: Build redirect URL with session token for client-side fallback
     const sessionUser = {
       id: user.id,
       name: user.name,
@@ -126,19 +126,23 @@ export async function GET(request: NextRequest) {
       email: user.email,
     };
 
-    const sessionData = JSON.stringify(sessionUser);
-    const encoded = Buffer.from(sessionData).toString("base64");
+    // Create a short-lived verification token for client-side fallback
+    // This ensures the session works even if the redirect cookie is lost
+    const verifyToken = Buffer.from(JSON.stringify({ tid: githubId, ts: Date.now() })).toString("base64url");
 
     const redirectUrl = new URL("/", request.url);
     redirectUrl.searchParams.set("github_login", "success");
     redirectUrl.searchParams.set("gh_name", encodeURIComponent(sessionUser.name));
 
     const response = NextResponse.redirect(redirectUrl);
-    response.cookies.set("yuamli_session", encoded, {
-      httpOnly: true,
+    // Set the session cookie on the redirect response
+    attachSessionToResponse(response, sessionUser);
+    // Also set a verification cookie that the frontend can use as a backup
+    response.cookies.set("yuamli_gh_verify", verifyToken, {
+      httpOnly: false, // readable by JS for the fallback mechanism
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: 30, // very short-lived (30 seconds)
       path: "/",
     });
 

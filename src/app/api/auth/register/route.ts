@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByQQ, getUserByEmail, addUser } from "@/lib/storage";
-import { hashPassword, createSession } from "@/lib/auth";
+import { hashPassword, sessionResponse } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -87,9 +87,7 @@ export async function POST(request: NextRequest) {
       email: user.email,
     };
 
-    await createSession(sessionUser);
-
-    return NextResponse.json({ ok: true, user: sessionUser });
+    return sessionResponse({ ok: true, user: sessionUser }, sessionUser);
   } catch {
     return NextResponse.json(
       { ok: false, error: "注册失败，请重试" },

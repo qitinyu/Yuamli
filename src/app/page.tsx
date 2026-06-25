@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback } from "react"
+import { useEffect, useCallback, useRef } from "react"
 import { useCommentStore } from "@/store/use-comment-store"
 import { toast } from "sonner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -15,38 +15,66 @@ import { LogOut, Shield, MessageCircleHeart, User } from "lucide-react"
 
 export default function Home() {
   const { user, setUser, isAdmin, setAdmin, setShowAdminPanel, setShowAuthModal } = useCommentStore()
+  const ghHandledRef = useRef(false)
 
-  const fetchSession = useCallback(async () => {
+  const fetchSession = useCallback(async (): Promise<boolean> => {
     try {
-      const res = await fetch("/api/auth/session")
+      const res = await fetch("/api/auth/session", { credentials: "same-origin" })
       const data = await res.json()
-      if (data.user) setUser(data.user)
-    } catch { /* ignore */ }
+      if (data.user) {
+        setUser(data.user)
+        return true
+      }
+      return false
+    } catch {
+      return false
+    }
   }, [setUser])
 
+  // Initial session fetch
   useEffect(() => { fetchSession() }, [fetchSession])
 
-  // Handle GitHub OAuth callback — session cookie is now set server-side
+  // Handle GitHub OAuth callback with retry mechanism
   useEffect(() => {
+    if (ghHandledRef.current) return
     const params = new URLSearchParams(window.location.search)
     const ghLogin = params.get("github_login")
     const ghError = params.get("github_error")
 
-    if (ghLogin === "success") {
-      const ghName = params.get("gh_name")
-      toast.success(`GitHub 登录成功${ghName ? `，欢迎 ${decodeURIComponent(ghName)}！` : "！"}`)
-      window.history.replaceState({}, "", "/")
-      // Re-fetch session to update user from the new cookie
-      fetchSession()
-    } else if (ghError) {
+    if (ghError) {
+      ghHandledRef.current = true
       toast.error("GitHub 登录失败: " + decodeURIComponent(ghError))
       window.history.replaceState({}, "", "/")
+      return
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+
+    if (ghLogin !== "success") return
+    ghHandledRef.current = true
+
+    const ghName = params.get("gh_name")
+    window.history.replaceState({}, "", "/")
+
+    // Retry fetching session up to 3 times with increasing delay
+    // This handles edge cases where the cookie might not be immediately available
+    let attempts = 0
+    const maxAttempts = 3
+    const tryFetch = async () => {
+      const success = await fetchSession()
+      if (success) {
+        toast.success(`GitHub 登录成功${ghName ? `，欢迎 ${decodeURIComponent(ghName)}！` : "！"}`)
+      } else if (attempts < maxAttempts) {
+        attempts++
+        setTimeout(tryFetch, 300 * attempts) // 300ms, 600ms, 900ms
+      } else {
+        toast.error("GitHub 登录后未能获取会话，请刷新页面重试")
+      }
+    }
+    // Small initial delay to ensure cookie is available
+    setTimeout(tryFetch, 100)
+  }, [fetchSession])
 
   const handleLogout = async () => {
-    try { await fetch("/api/auth/session", { method: "POST" }); setUser(null); toast.success("已退出登录") }
+    try { await fetch("/api/auth/session", { method: "POST", credentials: "same-origin" }); setUser(null); toast.success("已退出登录") }
     catch { /* ignore */ }
   }
 

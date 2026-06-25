@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSession, destroySession } from "@/lib/auth";
+import { getSession, clearSessionResponse } from "@/lib/auth";
 
 export async function GET() {
   try {
@@ -12,8 +12,7 @@ export async function GET() {
 
 export async function POST() {
   try {
-    await destroySession();
-    return NextResponse.json({ ok: true });
+    return clearSessionResponse({ ok: true });
   } catch {
     return NextResponse.json(
       { ok: false, message: "Failed to destroy session" },

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByQQ, getUserByEmail } from "@/lib/storage";
-import { verifyPassword, createSession } from "@/lib/auth";
+import { verifyPassword, sessionResponse } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,27 +37,15 @@ export async function POST(request: NextRequest) {
 
     const maxAge = remember ? 60 * 60 * 24 * 30 : undefined;
 
-    await createSession(
-      {
-        id: user.id,
-        name: user.name,
-        avatar: user.avatar,
-        type: user.type,
-        email: user.email,
-      },
-      maxAge
-    );
+    const sessionUser = {
+      id: user.id,
+      name: user.name,
+      avatar: user.avatar,
+      type: user.type,
+      email: user.email,
+    };
 
-    return NextResponse.json({
-      ok: true,
-      user: {
-        id: user.id,
-        name: user.name,
-        avatar: user.avatar,
-        type: user.type,
-        email: user.email,
-      },
-    });
+    return sessionResponse({ ok: true, user: sessionUser }, sessionUser, maxAge);
   } catch {
     return NextResponse.json(
       { ok: false, error: "登录失败，请重试" },

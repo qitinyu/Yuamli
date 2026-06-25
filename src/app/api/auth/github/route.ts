@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserByGithubId, addUser, updateUser } from "@/lib/storage";
-import { createSession } from "@/lib/auth";
+import { sessionResponse } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
@@ -107,9 +107,7 @@ export async function POST(request: NextRequest) {
       email: user.email,
     };
 
-    await createSession(sessionUser);
-
-    return NextResponse.json({ ok: true, user: sessionUser });
+    return sessionResponse({ ok: true, user: sessionUser }, sessionUser);
   } catch {
     return NextResponse.json(
       { ok: false, error: "GitHub 登录失败，请重试" },
