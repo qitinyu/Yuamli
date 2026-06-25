@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useCommentStore } from "@/store/use-comment-store"
 import { toast } from "sonner"
 import {
@@ -33,6 +33,9 @@ import {
   MessageSquare,
   RefreshCw,
   Loader2,
+  Download,
+  Upload,
+  Database,
 } from "lucide-react"
 import {
   Table,
@@ -78,6 +81,11 @@ export default function AdminPanel() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [commentsLoading, setCommentsLoading] = useState(false)
   const [batchLoading, setBatchLoading] = useState(false)
+
+  // Data export / import state
+  const [exporting, setExporting] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const importInputRef = useRef<HTMLInputElement>(null)
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -163,6 +171,109 @@ export default function AdminPanel() {
       toast.error("网络错误")
     } finally {
       setSavingNotify(false)
+    }
+  }
+
+  // Export data
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const res = await fetch("/api/admin/data")
+      if (!res.ok) {
+        toast.error("导出失败，请确认管理员已登录")
+        return
+      }
+      const blob = await res.blob()
+      // Extract filename from Content-Disposition header
+      const disposition = res.headers.get("Content-Disposition")
+      let filename = `yuamli-backup-${new Date().toISOString().slice(0, 10)}.json`
+      if (disposition) {
+        const match = disposition.match(/filename="?([^"]+)"?/)
+        if (match) filename = match[1]
+      }
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      toast.success("数据已导出")
+    } catch {
+      toast.error("导出失败，网络错误")
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  // Import data
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // Reset file input so the same file can be re-selected
+    e.target.value = ""
+
+    const isOverwrite = confirm(
+      "导入模式选择：\n\n点击「确定」= 覆盖导入（清空现有数据后写入备份）\n点击「取消」= 合并导入（保留现有数据，只添加不存在的记录）"
+    )
+    const mode = isOverwrite ? "overwrite" : "merge"
+
+    if (!confirm(
+      isOverwrite
+        ? "⚠️ 覆盖导入将替换所有现有数据，此操作不可撤销！确认继续？"
+        : "将以合并模式导入数据，现有数据不会被删除。确认继续？"
+    )) return
+
+    setImporting(true)
+    try {
+      const text = await file.text()
+      let data: any
+      try {
+        data = JSON.parse(text)
+      } catch {
+        toast.error("文件格式错误，不是有效的 JSON")
+        return
+      }
+
+      // Validate structure
+      if (!data._meta || !data.comments && !data.users && !data.config) {
+        toast.error("这不是 Yuamli 的备份文件")
+        return
+      }
+
+      const res = await fetch("/api/admin/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          comments: data.comments,
+          users: data.users,
+          config: data.config,
+          mode,
+        }),
+      })
+      const result = await res.json()
+      if (!res.ok) {
+        toast.error(result.message || "导入失败")
+        return
+      }
+
+      const { stats } = result
+      const parts: string[] = []
+      if (stats.comments > 0) parts.push(`留言 ${stats.comments} 条`)
+      if (stats.users > 0) parts.push(`用户 ${stats.users} 个`)
+      if (stats.config) parts.push("配置")
+      const detail = parts.length > 0 ? `（${parts.join("、")}）` : ""
+      toast.success(`${result.message}${detail}`)
+
+      // Refresh data
+      fetchAdminData()
+      fetchAdminComments()
+      incrementRefresh()
+    } catch {
+      toast.error("导入失败，请重试")
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -385,6 +496,65 @@ export default function AdminPanel() {
                     </TableBody>
                   </Table>
                 </ScrollArea>
+              </div>
+
+              <Separator />
+
+              {/* Data Backup & Restore */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium flex items-center gap-1.5">
+                  <Database className="h-4 w-4" />
+                  数据备份
+                </h3>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  将 KV 中的留言、用户、配置导出为 JSON 文件。RAM-only 存储无持久化，建议定期备份以防数据丢失。
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs gap-1.5"
+                    onClick={handleExport}
+                    disabled={exporting}
+                  >
+                    {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                    导出数据
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs gap-1.5"
+                    onClick={() => importInputRef.current?.click()}
+                    disabled={importing}
+                  >
+                    {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                    导入数据
+                  </Button>
+                  <input
+                    ref={importInputRef}
+                    type="file"
+                    accept=".json"
+                    className="hidden"
+                    onChange={handleImport}
+                  />
+                </div>
+                <div className="rounded-md bg-muted/40 border p-2.5 space-y-1.5">
+                  <p className="text-[10px] text-muted-foreground font-medium">导出文件包含：</p>
+                  <div className="grid grid-cols-3 gap-2 text-[10px]">
+                    <div className="rounded bg-background border px-2 py-1.5 text-center">
+                      <p className="font-medium">comments</p>
+                      <p className="text-muted-foreground">所有留言</p>
+                    </div>
+                    <div className="rounded bg-background border px-2 py-1.5 text-center">
+                      <p className="font-medium">users</p>
+                      <p className="text-muted-foreground">用户账号</p>
+                    </div>
+                    <div className="rounded bg-background border px-2 py-1.5 text-center">
+                      <p className="font-medium">config</p>
+                      <p className="text-muted-foreground">站点配置</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <Separator />
