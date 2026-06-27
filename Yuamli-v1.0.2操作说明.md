@@ -1,23 +1,23 @@
-# Yuamli 留言系统
 
-> **版本**: V-1.0.1
-> **作者**: YuQi
-> **许可**: MIT
-> **简介**: 基于 Next.js 16 的轻量级留言系统，支持 GitHub OAuth 登录、游客注册登录、无限嵌套回复、Markdown 语法、后台管理、数据备份导入导出。本地开发使用 JSON 文件存储，部署到 Vercel 时自动切换为 Vercel KV（Redis）。
 
 ---
 
-## 目录
 [TOC]
 
 ---
 
 
----
-
 ## 项目介绍
-### 功能特性
 
+### 简介
+- **版本**: V-1.0.2
+- **作者**: YuQi
+- **技术支持**:z.ai-GLM5
+- **许可**: MIT
+- **更新日期**: 2026-06-27
+- **简介**: 基于 Next.js 16 的轻量级留言系统，支持 GitHub OAuth 登录、游客注册登录、无限嵌套回复、Markdown 语法、后台管理、数据备份导入导出。本地开发使用 JSON 文件存储，部署到 Vercel 时自动切换为 Vercel KV（Redis）。
+
+### 功能特性
 - **用户系统**: GitHub OAuth 第三方登录为主,辅以QQ号注册/邮箱注册登录
 - **评论系统**: 无限制嵌套回复、Markdown 语法支持、评论折叠/展开
 - **管理后台**: 密码保护、留言批量管理（删除/置顶/精华）、用户管理、邮箱通知设置
@@ -379,39 +379,112 @@ GITHUB_CLIENT_SECRET=1a2b3c4d5e6f7g8h9i0j
 
 ## 后台管理
 
-点击页面右上角的盾牌图标，输入管理密码进入后台。
+### 访问后台
 
-### 默认密码
+1. 访问 `https://你的域名/admin`
+2. 输入管理密码（默认 `20030723`）
+3. 点击「登录」
 
-`admin123`，请务必修改。
->[!important]
->:spoiler[config.js内的'adminPassword': "xxxxxx",单改此处的xxxxxx是不起效果的,必须是要将自己需要的密码取哈希值填入.例:你想要的密码:123456|取它的哈希值:dadswd|要将dadswd填入adminpassword而不是123456]
+### 后台功能
 
-### 功能一览
+- **留言管理**：查看全部留言、删除、置顶、设为精华、批量操作
+- **用户列表**：查看注册用户信息
+- **设置**：修改密码、通知邮箱、通知模板
+- **数据**：导出/导入 JSON 备份
 
-1. **数据备份:**
+### 修改管理密码
 
-- **导出数据**：将 KV / JSON 中的全部数据（留言、用户、配置）导出为 JSON 文件下载到本地
-- **导入数据**：上传之前导出的 JSON 备份文件恢复数据，支持两种模式：
-  - **覆盖导入**：清空现有数据，写入备份文件的全部内容
-  - **合并导入**：保留现有数据，只添加备份中不存在的记录（按 ID 去重）
+1. 登录后台
+2. 切换到「设置」标签页
+3. 在「修改密码」区域填写：
+   - 原密码
+   - 新密码（至少 4 个字符）
+   - 确认新密码
+4. 点击「保存」→ 密码立即生效，下次登录需使用新密码
 
-> **建议**：使用 Vercel KV 免费方案（RAM-only，无持久化）时，定期导出备份到本地。RAM-only 存储在 Redis 实例重启时可能丢失数据。
+---
 
-2. **邮箱通知**
+## 修改导航栏 (nav/版本号)
 
-- 设置站长邮箱
-- 开启 / 关闭新留言通知
-- 编辑通知模板，支持变量：`{author}` 作者名、`{content}` 留言内容、`{time}` 时间
+导航栏定义在 `src/app/page.tsx` 的 `<header>` 区域。
 
-3. **用户管理**
+### 修改标题/Logo
 
-- 查看所有注册用户，显示用户名、类型（游客 / GitHub）、邮箱、注册时间。
+```tsx
+// src/app/page.tsx 中的 header 部分
+<header className="border-b bg-white/60 backdrop-blur-sm sticky top-0 z-50">
+  <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div className="flex items-center gap-2">
+      <MessageCircleHeart className="h-5 w-5 text-emerald-600" />
+      <h1 className="text-lg font-bold">Yuamli</h1>  {/* ← 修改这里 */}
+      <Badge variant="secondary" className="text-[10px] h-4 font-normal">v1.0.0</Badge>  {/* ← 版本号 */}
+    </div>
+    ...
+  </div>
+</header>
+```
 
-4. **留言批量管理**
+## 修改页脚 (footer/版本号)
 
-- 勾选留言后执行批量操作：置顶 / 取消置顶 / 设为精华 / 取消精华 / 删除
-- 删除操作会同时删除该留言的所有子回复
+页脚定义在 `src/app/page.tsx` 的 `<footer>` 区域。
+
+### 修改页脚内容
+
+```tsx
+// src/app/page.tsx 中的 footer 部分
+<footer className="border-t bg-white/60 backdrop-blur-sm">
+  <div className="max-w-2xl mx-auto px-4 py-4 text-center">
+    <p className="text-xs text-muted-foreground">
+      Powered by <span className="font-medium text-foreground">Yuamli</span> v1.0.0
+      {/* ↑ 修改 "Yuamli" 和版本号 */}
+    </p>
+    {/* 可以添加更多内容 */}
+    <p className="text-xs text-muted-foreground mt-1">
+      © 2024 你的名字 · <a href="https://你的域名" className="hover:text-foreground">主页</a>
+    </p>
+  </div>
+</footer>
+```
+
+### 后台页面的页脚
+
+后台页脚在 `src/app/admin/page.tsx` 中：
+
+```tsx
+<footer className="border-t bg-white/60 backdrop-blur-sm">
+  <div className="max-w-3xl mx-auto px-4 py-4 text-center">
+    <p className="text-xs text-stone-400">
+      Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.0.0
+      {/* ↑ 修改这里 */}
+    </p>
+  </div>
+</footer>
+```
+
+---
+
+
+### 4. layout.tsx 元数据
+
+**文件**: `src/app/layout.tsx`
+
+```tsx
+export const metadata: Metadata = {
+  title: "Yuamli - 轻量留言系统",
+  description: "Yuamli V-1.0.0 轻量级留言系统...",  // ← 修改版本号
+  // ...
+};
+```
+
+### 5. package.json
+
+**文件**: `package.json`
+
+```json
+{
+  "version": "0.2.0"  // ← 修改版本号
+}
+```
 
 ---
 
@@ -521,15 +594,6 @@ V-1.0.1 已移除 `@vercel/kv` 依赖，改为使用原生 `fetch` 调用 Redis 
 
 ## 更新日志
 
-### V-1.0.1 (2026-06-25)
-
-- **修复**：游客注册 / 登录在 Vercel 部署后 Cookie 未设置的问题（Next.js 15+ Route Handler 中 `cookies()` 为只读）
-- **修复**：GitHub OAuth 回调后登录状态不生效的问题（增加前端会话获取重试机制）
-- **修复**：管理员认证 Cookie 设置方式兼容 Next.js 16
-- **移除**：`@vercel/kv` 依赖，改为原生 `fetch` 调用 Redis REST API，消除废弃包导致的构建失败
-- **新增**：数据备份功能 — 管理后台支持一键导出 / 导入全部数据（覆盖或合并模式）
-- **优化**：GitHub 回调增加重试机制，应对 CDN 边缘情况下的 Cookie 时序问题
-
 ### V-1.0.0 (2026-06-23)
 
 - 初始版本发布
@@ -541,3 +605,17 @@ V-1.0.1 已移除 `@vercel/kv` 依赖，改为使用原生 `fetch` 调用 Redis 
 - 邮箱通知设置 + 自定义邮件模板
 - "记住我"登录（30 天免登录）
 - 响应式布局 + 深色模式
+
+### V-1.0.1 (2026-06-25)
+
+- **修复**：游客注册 / 登录在 Vercel 部署后 Cookie 未设置的问题（Next.js 15+ Route Handler 中 `cookies()` 为只读）
+- **修复**：GitHub OAuth 回调后登录状态不生效的问题（增加前端会话获取重试机制）
+- **修复**：管理员认证 Cookie 设置方式兼容 Next.js 16
+- **移除**：`@vercel/kv` 依赖，改为原生 `fetch` 调用 Redis REST API，消除废弃包导致的构建失败
+- **新增**：数据备份功能 — 管理后台支持一键导出 / 导入全部数据（覆盖或合并模式）
+- **优化**：GitHub 回调增加重试机制，应对 CDN 边缘情况下的 Cookie 时序问题
+
+### V-1.0.2 (2026-06-27)
+- **修改**：改前台数据管理为后台数据管理
+- **增加**：添加`/admin`页后台管理系统,管理密码可一键修改
+

@@ -10,11 +10,10 @@ import { Badge } from "@/components/ui/badge"
 import CommentList from "@/components/comment-system/CommentList"
 import CommentForm from "@/components/comment-system/CommentForm"
 import AuthModal from "@/components/comment-system/AuthModal"
-import AdminPanel from "@/components/comment-system/AdminPanel"
-import { LogOut, Shield, MessageCircleHeart, User } from "lucide-react"
+import { LogOut, MessageCircleHeart, User } from "lucide-react"
 
 export default function Home() {
-  const { user, setUser, isAdmin, setAdmin, setShowAdminPanel, setShowAuthModal } = useCommentStore()
+  const { user, setUser, setShowAuthModal } = useCommentStore()
   const ghHandledRef = useRef(false)
 
   const fetchSession = useCallback(async (): Promise<boolean> => {
@@ -55,7 +54,6 @@ export default function Home() {
     window.history.replaceState({}, "", "/")
 
     // Retry fetching session up to 3 times with increasing delay
-    // This handles edge cases where the cookie might not be immediately available
     let attempts = 0
     const maxAttempts = 3
     const tryFetch = async () => {
@@ -64,12 +62,11 @@ export default function Home() {
         toast.success(`GitHub 登录成功${ghName ? `，欢迎 ${decodeURIComponent(ghName)}！` : "！"}`)
       } else if (attempts < maxAttempts) {
         attempts++
-        setTimeout(tryFetch, 300 * attempts) // 300ms, 600ms, 900ms
+        setTimeout(tryFetch, 300 * attempts)
       } else {
         toast.error("GitHub 登录后未能获取会话，请刷新页面重试")
       }
     }
-    // Small initial delay to ensure cookie is available
     setTimeout(tryFetch, 100)
   }, [fetchSession])
 
@@ -87,7 +84,7 @@ export default function Home() {
           <div className="flex items-center gap-2.5">
             <MessageCircleHeart className="h-5 w-5 text-emerald-600" />
             <h1 className="text-base font-semibold tracking-tight">拾遗</h1>
-            <Badge variant="secondary" className="text-[10px] h-4 font-normal">v1.0.0</Badge>
+            <Badge variant="secondary" className="text-[10px] h-4 font-normal">v1.0.2</Badge>
           </div>
           <div className="flex items-center gap-2">
             {user ? (
@@ -106,10 +103,6 @@ export default function Home() {
                 <User className="h-3.5 w-3.5" /> 登录
               </Button>
             )}
-            <Separator orientation="vertical" className="h-5" />
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowAdminPanel(true)} title="后台管理">
-              <Shield className={`h-4 w-4 ${isAdmin ? "text-emerald-600" : "text-muted-foreground"}`} />
-            </Button>
           </div>
         </div>
       </header>
@@ -120,11 +113,10 @@ export default function Home() {
       </main>
       <footer className="border-t bg-white/60 backdrop-blur-sm">
         <div className="max-w-2xl mx-auto px-4 py-4 text-center">
-          <p className="text-xs text-muted-foreground">Powered by <span className="font-medium text-foreground">Yuamli</span> v1.0.0</p>
+          <p className="text-xs text-muted-foreground">Powered by <span className="font-medium text-foreground">Yuamli</span> v1.0.2</p>
         </div>
       </footer>
       <AuthModal />
-      <AdminPanel />
     </div>
   )
 }

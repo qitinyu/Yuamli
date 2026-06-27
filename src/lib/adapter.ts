@@ -7,7 +7,7 @@ const KV_URL = process.env.KV_REST_API_URL || "";
 const KV_TOKEN = process.env.KV_REST_API_TOKEN || "";
 
 const DEFAULT_CONFIG = {
-  adminPassword: "g10hvh",
+  adminPassword: "wr56wn", // simpleHash("20030723")
   adminEmail: "",
   notifyEnabled: false,
   notifyTemplate: "您收到一条新留言：\n\n{author}：{content}\n\n时间：{time}",
