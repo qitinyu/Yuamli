@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getComments, buildCommentTree, type Comment } from "@/lib/storage";
+import { getComments, buildCommentTree, addComment, getConfig, type Comment } from "@/lib/storage";
+import { sendNotifyEmail, buildNotifyHtml } from "@/lib/email";
 
 export async function GET() {
   try {
@@ -67,8 +68,12 @@ export async function POST(request: NextRequest) {
       updatedAt: now,
     };
 
-    const { addComment } = await import("@/lib/storage");
     const saved = await addComment(comment);
+
+    // --- Send email notification (fire-and-forget, non-blocking) ---
+    sendNotification(comment).catch((err) => {
+      console.error("[notify] Background email failed:", err.message || err);
+    });
 
     return NextResponse.json({ ok: true, comment: saved });
   } catch {
@@ -76,5 +81,49 @@ export async function POST(request: NextRequest) {
       { ok: false, message: "Internal server error" },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Background: send email notification if enabled and configured.
+ * This runs after the comment response is sent — non-blocking.
+ */
+async function sendNotification(comment: Comment): Promise<void> {
+  try {
+    const config = await getConfig();
+
+    if (!config.notifyEnabled) return;
+    if (!config.adminEmail) return;
+    if (!config.smtpUser || !config.smtpPass || !config.smtpHost) return;
+
+    const timeStr = new Date(comment.createdAt).toLocaleString("zh-CN", {
+      timeZone: "Asia/Shanghai",
+    });
+
+    const html = buildNotifyHtml(config.notifyTemplate || "", {
+      author: comment.author.name,
+      content: comment.content,
+      time: timeStr,
+      siteName: config.siteName,
+    });
+
+    const replyInfo = comment.replyTo
+      ? ` (回复 ${comment.replyTo.name})`
+      : "";
+
+    await sendNotifyEmail({
+      smtpConfig: {
+        smtpHost: config.smtpHost,
+        smtpPort: config.smtpPort || 465,
+        smtpUser: config.smtpUser,
+        smtpPass: config.smtpPass,
+      },
+      to: config.adminEmail,
+      subject: `[${config.siteName}] 新留言${replyInfo} - ${comment.author.name}`,
+      html,
+    });
+  } catch (err) {
+    // Silent failure — email notification should never block the main flow
+    console.error("[notify] sendNotification error:", err);
   }
 }
