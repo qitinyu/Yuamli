@@ -1,7 +1,4 @@
-
-
----
-
+## Yuamli 操作说明
 [TOC]
 
 ---
@@ -10,11 +7,11 @@
 ## 项目介绍
 
 ### 简介
-- **版本**: V-1.0.2
+- **版本**: V-1.0.3
 - **作者**: YuQi
 - **技术支持**:z.ai-GLM5
 - **许可**: MIT
-- **更新日期**: 2026-06-27
+- **更新日期**: 2026-07-01
 - **简介**: 基于 Next.js 16 的轻量级留言系统，支持 GitHub OAuth 登录、游客注册登录、无限嵌套回复、Markdown 语法、后台管理、数据备份导入导出。本地开发使用 JSON 文件存储，部署到 Vercel 时自动切换为 Vercel KV（Redis）。
 
 ### 功能特性
@@ -402,6 +399,41 @@ GITHUB_CLIENT_SECRET=1a2b3c4d5e6f7g8h9i0j
    - 确认新密码
 4. 点击「保存」→ 密码立即生效，下次登录需使用新密码
 
+### 邮件通知集成
+>[!tip]
+>无须进行手动配置
+
+| 涉及文件 | 作用 |
+|------|------|
+| `src/lib/email.ts` | 核心邮件工具 — nodemailer 创建传输、验证 SMTP、发送通知、构建 HTML 模板 |
+| `src/lib/storage.ts` | SiteConfig 接口定义，包含 `smtpHost / smtpPort / smtpUser / smtpPass` 四个 SMTP 字段 |
+| `src/lib/adapter.ts` | DEFAULT_CONFIG 默认值，预填 `smtp.qq.com:465` |
+| `src/app/api/admin/notify/route.ts` | 后台 API — GET 读取 SMTP 配置（密码掩码）、PUT 保存配置、支持 `action:"test"` 发送测试邮件 |
+| `src/app/api/comments/route.ts` | 留言提交 API — 用户发留言后，fire-and-forget 异步调用 `sendNotification()`，不阻塞响应 |
+
+### 触发位置
+用户提交留言 → addComment() → sendNotification()（异步，不等待结果）
+                                        ↓
+                              读取 config → 判断 notifyEnabled
+                                        ↓
+                              调用 email.ts 的 sendNotifyEmail()
+                                        ↓
+                              nodemailer → QQ SMTP 465 SSL → 发到 adminEmail
+### 配置方式
+访问 https://你的域名/admin 进入管理后台,输入正确密码进入设置页面，依次填写：
+|位置|说明|
+|:---:|:---:|
+|SMTP 服务器：|smtp.qq.com(保持默认)|
+|SMTP 端口：|465(保持默认)|
+|发件邮箱：|你的 QQ 邮箱地址|
+|SMTP 授权码：|QQ邮箱-设置-左侧账号与安全-安全设置-POP3/IMAP/SMTP/Exchange/CardDAV 服务（未/已开启-生成16 位授权码（非登录密码）-初次设置可以点击查看授权配置方法-点击复制授权码-回到后台粘贴授权码-保存后测试|
+|通知模板|您收到一条新留言：<br>{雨祁}：<br>{您有新的留言待查阅!!!}<br>时间：{time}|
+|站长收件邮箱：|接收通知的邮箱|
+|开启邮件通知：|打开开关|
+|点击 发送测试邮件 |验证配置是否正确|
+
+配置通过 /api/admin/notify 保存到存储（本地 JSON 文件或 Vercel KV），授权码只在首次填写时保存，之后 GET 接口返回掩码值。
+
 ---
 
 ## 修改导航栏 (nav/版本号)
@@ -619,3 +651,6 @@ V-1.0.1 已移除 `@vercel/kv` 依赖，改为使用原生 `fetch` 调用 Redis 
 - **修改**：改前台数据管理为后台数据管理
 - **增加**：添加`/admin`页后台管理系统,管理密码可一键修改
 
+### V-1.0.3 (2026-07-01)
+- **修改**：去除前台侧边栏后台管理入口改为后台/admin入口
+- **增加**：添加邮件通知功能，目前支持QQ邮箱

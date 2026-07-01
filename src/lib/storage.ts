@@ -37,6 +37,11 @@ export interface SiteConfig {
   notifyEnabled: boolean;
   notifyTemplate: string;
   siteName: string;
+  // SMTP configuration for email notifications
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  smtpPass: string;
 }
 
 // ==================== Comments ====================

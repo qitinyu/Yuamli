@@ -76,6 +76,14 @@ export default function AdminPanel() {
   const [notifyTemplate, setNotifyTemplate] = useState("")
   const [savingNotify, setSavingNotify] = useState(false)
 
+  // SMTP config state
+  const [smtpHost, setSmtpHost] = useState("smtp.qq.com")
+  const [smtpPort, setSmtpPort] = useState(465)
+  const [smtpUser, setSmtpUser] = useState("")
+  const [smtpPass, setSmtpPass] = useState("")
+  const [smtpPassMasked, setSmtpPassMasked] = useState("")
+  const [testingNotify, setTestingNotify] = useState(false)
+
   // Comment management state
   const [adminComments, setAdminComments] = useState<AdminComment[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -134,6 +142,16 @@ export default function AdminPanel() {
         setNotifyTemplate(data.config?.notifyTemplate || "")
       })
       .catch(() => {})
+    // Also fetch SMTP config
+    fetch("/api/admin/notify")
+      .then((r) => r.json())
+      .then((data) => {
+        setSmtpHost(data.smtpHost || "smtp.qq.com")
+        setSmtpPort(data.smtpPort || 465)
+        setSmtpUser(data.smtpUser || "")
+        setSmtpPassMasked(data.smtpPass || "")
+      })
+      .catch(() => {})
   }, [])
 
   const fetchAdminComments = useCallback(() => {
@@ -157,20 +175,66 @@ export default function AdminPanel() {
   const handleSaveNotify = async () => {
     setSavingNotify(true)
     try {
+      const payload: Record<string, unknown> = {
+        email: notifyEmail,
+        enabled: notifyEnabled,
+        template: notifyTemplate,
+        smtpHost,
+        smtpPort,
+        smtpUser,
+      }
+      // Only send smtpPass if user actually typed a new one
+      // (not the masked "********" value)
+      if (smtpPass && smtpPass !== smtpPassMasked) {
+        payload.smtpPass = smtpPass
+      }
       const res = await fetch("/api/admin/notify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: notifyEmail, enabled: notifyEnabled, template: notifyTemplate }),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) {
         toast.error("保存失败")
         return
       }
       toast.success("通知设置已保存")
+      setSmtpPassMasked("********")
+      setSmtpPass("")
     } catch {
       toast.error("网络错误")
     } finally {
       setSavingNotify(false)
+    }
+  }
+
+  const handleTestNotify = async () => {
+    setTestingNotify(true)
+    try {
+      const payload: Record<string, unknown> = {
+        action: "test",
+        email: notifyEmail,
+        smtpHost,
+        smtpPort,
+        smtpUser,
+      }
+      if (smtpPass) {
+        payload.smtpPass = smtpPass
+      }
+      const res = await fetch("/api/admin/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        toast.success(data.message)
+      } else {
+        toast.error(data.message)
+      }
+    } catch {
+      toast.error("网络错误")
+    } finally {
+      setTestingNotify(false)
     }
   }
 
@@ -430,17 +494,87 @@ export default function AdminPanel() {
                     rows={5}
                   />
                   <p className="text-[10px] text-muted-foreground">
-                    可用变量：{"{author}"} 作者名、{"{content}"} 留言内容、{"{time}"} 时间
+                    可用变量：{"{author}"} 作者名、{"{content}"} 留言内容、{"{time}"} 时间、{"{siteName}"} 站点名
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  className="bg-emerald-600 hover:bg-emerald-700"
-                  onClick={handleSaveNotify}
-                  disabled={savingNotify}
-                >
-                  {savingNotify ? "保存中..." : "保存通知设置"}
-                </Button>
+
+                {/* SMTP Configuration */}
+                <div className="rounded-md border bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-medium">SMTP 邮件服务配置</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2 space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">SMTP 服务器</Label>
+                      <Input
+                        type="text"
+                        placeholder="smtp.qq.com"
+                        value={smtpHost}
+                        onChange={(e) => setSmtpHost(e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] text-muted-foreground">端口</Label>
+                      <Input
+                        type="number"
+                        placeholder="465"
+                        value={smtpPort}
+                        onChange={(e) => setSmtpPort(Number(e.target.value) || 465)}
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">发件邮箱（SMTP 用户名）</Label>
+                    <Input
+                      type="email"
+                      placeholder="123456789@qq.com"
+                      value={smtpUser}
+                      onChange={(e) => setSmtpUser(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] text-muted-foreground">SMTP 授权码</Label>
+                    <Input
+                      type="password"
+                      placeholder={smtpPassMasked ? "已配置，留空则不修改" : "QQ邮箱授权码（非登录密码）"}
+                      value={smtpPass}
+                      onChange={(e) => setSmtpPass(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                  <div className="rounded-sm bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 p-2 mt-1">
+                    <p className="text-[10px] text-blue-700 dark:text-blue-300 leading-relaxed">
+                      💡 QQ邮箱授权码获取：登录 QQ邮箱网页版 → 设置 → 账户 → 开启 IMAP/SMTP 服务 → 按提示获取16位授权码。授权码只需设置一次，后续无需重复获取。
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                    onClick={handleSaveNotify}
+                    disabled={savingNotify}
+                  >
+                    {savingNotify ? "保存中..." : "保存通知设置"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleTestNotify}
+                    disabled={testingNotify || (!notifyEmail && !smtpUser)}
+                  >
+                    {testingNotify ? (
+                      <><Loader2 className="h-3 w-3 mr-1 animate-spin" />发送中...</>
+                    ) : (
+                      "发送测试邮件"
+                    )}
+                  </Button>
+                </div>
               </div>
 
               <Separator />
