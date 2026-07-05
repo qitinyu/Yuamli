@@ -39,6 +39,7 @@ interface Comment {
   replyTo: { id: string; name: string } | null
   isPinned: boolean
   isFeatured: boolean
+  pageId: string
   createdAt: string
   updatedAt: string
   replies?: Comment[]
@@ -80,6 +81,9 @@ export default function AdminPage() {
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  // PageId filter
+  const [pageIdFilter, setPageIdFilter] = useState("")
 
   // Settings form
   const [notifyEmail, setNotifyEmail] = useState("")
@@ -588,6 +592,31 @@ export default function AdminPage() {
         {/* Comments tab */}
         {activeTab === "comments" && (
           <div>
+            {/* PageId filter */}
+            {(() => {
+              const allPageIds = [...new Set(comments.map(c => c.pageId).filter(Boolean))].sort()
+              if (allPageIds.length <= 1) return null
+              return (
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-xs text-stone-500">页面筛选:</span>
+                  <div className="relative">
+                    <select
+                      value={pageIdFilter}
+                      onChange={e => setPageIdFilter(e.target.value)}
+                      className="appearance-none pl-3 pr-7 py-1.5 rounded-lg border border-stone-300 text-sm bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none cursor-pointer"
+                    >
+                      <option value="">全部页面</option>
+                      <option value="__guestbook__">留言板（无 pageId）</option>
+                      {allPageIds.map(pid => (
+                        <option key={pid} value={pid}>{pid}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-stone-400 pointer-events-none" />
+                  </div>
+                </div>
+              )
+            })()}
+
             {/* Batch actions */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2 flex-wrap">
@@ -634,7 +663,13 @@ export default function AdminPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {comments.map(c => (
+                {comments
+                  .filter(c => {
+                    if (!pageIdFilter) return true
+                    if (pageIdFilter === "__guestbook__") return !c.pageId
+                    return c.pageId === pageIdFilter
+                  })
+                  .map(c => (
                   <div key={c.id} className="bg-white rounded-lg border border-stone-200 p-4">
                     <div className="flex items-start gap-3">
                       <input
@@ -644,7 +679,7 @@ export default function AdminPage() {
                         className="mt-1 rounded border-stone-300"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className="font-medium text-sm text-stone-900">{c.author.name}</span>
                           {c.author.type === "github" && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">GitHub</span>
@@ -657,6 +692,11 @@ export default function AdminPage() {
                           {c.isFeatured && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 flex items-center gap-0.5">
                               <Star className="h-2.5 w-2.5" /> 精华
+                            </span>
+                          )}
+                          {c.pageId && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 truncate max-w-[200px]" title={c.pageId}>
+                              {c.pageId}
                             </span>
                           )}
                           <span className="text-xs text-stone-400 ml-auto">{formatDate(c.createdAt)}</span>
@@ -977,7 +1017,7 @@ export default function AdminPage() {
       {/* 后台页脚*/}
       <footer className="border-t bg-white/60 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto px-4 py-4 text-center">
-          <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.0.3</p>
+          <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.0.4.1</p>
         </div>
       </footer>
     </div>

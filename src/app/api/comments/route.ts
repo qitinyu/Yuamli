@@ -2,12 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { getComments, buildCommentTree, addComment, getConfig, type Comment } from "@/lib/storage";
 import { sendNotifyEmail, buildNotifyHtml } from "@/lib/email";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url);
+    const pageId = searchParams.get("pageId") || "";
+
     const allComments = await getComments();
 
+    // Filter by pageId: empty pageId means show all (guestbook mode)
+    const filtered = pageId
+      ? allComments.filter((c) => c.pageId === pageId)
+      : allComments;
+
     // Build recursive tree
-    const tree = buildCommentTree(allComments, null);
+    const tree = buildCommentTree(filtered, null);
 
     // Sort top-level: pinned first, then by createdAt desc
     tree.sort((a, b) => {
@@ -18,7 +26,7 @@ export async function GET() {
 
     return NextResponse.json({
       comments: tree,
-      total: allComments.length,
+      total: filtered.length,
     });
   } catch {
     return NextResponse.json(
@@ -40,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { content, parentId, replyTo } = body;
+    const { content, parentId, replyTo, pageId } = body;
 
     if (!content || typeof content !== "string" || content.trim().length === 0) {
       return NextResponse.json(
@@ -64,6 +72,7 @@ export async function POST(request: NextRequest) {
       replyTo: replyTo ? { id: replyTo.id, name: replyTo.name } : null,
       isPinned: false,
       isFeatured: false,
+      pageId: pageId || "",
       createdAt: now,
       updatedAt: now,
     };
@@ -110,6 +119,9 @@ async function sendNotification(comment: Comment): Promise<void> {
     const replyInfo = comment.replyTo
       ? ` (回复 ${comment.replyTo.name})`
       : "";
+    const pageInfo = comment.pageId
+      ? ` [${comment.pageId}]`
+      : "";
 
     await sendNotifyEmail({
       smtpConfig: {
@@ -119,7 +131,7 @@ async function sendNotification(comment: Comment): Promise<void> {
         smtpPass: config.smtpPass,
       },
       to: config.adminEmail,
-      subject: `[${config.siteName}] 新留言${replyInfo} - ${comment.author.name}`,
+      subject: `[${config.siteName}] 新留言${pageInfo}${replyInfo} - ${comment.author.name}`,
       html,
     });
   } catch (err) {

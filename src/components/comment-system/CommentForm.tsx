@@ -3,10 +3,11 @@
 import { useState, useRef, useEffect } from "react"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useCommentStore } from "@/store/use-comment-store"
 import { toast } from "sonner"
 import ReactMarkdown from "react-markdown"
-import { Eye, EyeOff, Send, X, Bold, Italic, Link, List } from "lucide-react"
+import { Eye, EyeOff, Send, X, Bold, Italic, Link, List, LogOut, User } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -18,6 +19,7 @@ interface CommentFormProps {
   replyTo?: { id: string; name: string } | null
   onSubmitted?: () => void
   autoFocus?: boolean
+  pageId?: string
 }
 
 export default function CommentForm({
@@ -25,8 +27,9 @@ export default function CommentForm({
   replyTo,
   onSubmitted,
   autoFocus = false,
+  pageId = "",
 }: CommentFormProps) {
-  const { user, setShowAuthModal, setReplyingTo, incrementRefresh } = useCommentStore()
+  const { user, setUser, setShowAuthModal, setReplyingTo, incrementRefresh } = useCommentStore()
   const [content, setContent] = useState("")
   const [showPreview, setShowPreview] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -76,6 +79,7 @@ export default function CommentForm({
       const body: Record<string, unknown> = { content: content.trim() }
       if (parentId) body.parentId = parentId
       if (replyTo) body.replyTo = replyTo
+      if (pageId) body.pageId = pageId
 
       const res = await fetch("/api/comments", {
         method: "POST",
@@ -100,10 +104,20 @@ export default function CommentForm({
     }
   }
 
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/session", { method: "POST", credentials: "same-origin" })
+      setUser(null)
+      toast.success("已退出登录")
+    } catch { /* ignore */ }
+  }
+
   const handleCancelReply = () => {
     setContent("")
     setReplyingTo(null)
   }
+
+  const getInitial = (name: string) => name.charAt(0).toUpperCase()
 
   return (
     <div className="space-y-2">
@@ -237,6 +251,47 @@ export default function CommentForm({
               取消
             </Button>
           )}
+
+          {/* Login button / Avatar + Logout — to the left of send button */}
+          {user ? (
+            <>
+              <div className="flex items-center gap-1.5 mr-1">
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src={user.avatar} alt={user.name} />
+                  <AvatarFallback className="bg-emerald-100 text-emerald-700 text-[9px] font-medium">
+                    {getInitial(user.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-xs font-medium text-muted-foreground hidden sm:inline max-w-[80px] truncate">
+                  {user.name}
+                </span>
+              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    onClick={handleLogout}
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>退出登录</TooltipContent>
+              </Tooltip>
+            </>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs mr-1"
+              onClick={() => setShowAuthModal(true)}
+            >
+              <User className="h-3.5 w-3.5" />
+              登录
+            </Button>
+          )}
+
           <Button
             size="sm"
             className="h-8 gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700"

@@ -109,8 +109,76 @@ export default function AuthModal() {
     }
     const redirectUri = encodeURIComponent(window.location.origin + "/api/auth/github/callback");
     const scope = "user:email read:user";
-    window.location.href =
-      `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
+    const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
+
+    // Set a cookie to tell the callback we're in popup mode (don't modify redirect_uri, GitHub requires exact match)
+    document.cookie = "yuamli_popup=1; path=/; max-age=120; SameSite=Lax";
+
+    // Open a small popup window for GitHub OAuth
+    const w = 600, h = 700;
+    const left = (screen.width - w) / 2;
+    const top = (screen.height - h) / 2;
+    const popup = window.open(authUrl, "yuamli_github_auth", `width=${w},height=${h},left=${left},top=${top},resizable=no,scrollbars=yes`);
+
+    // Listen for BroadcastChannel message from the callback page
+    const bc = new BroadcastChannel("yuamli-auth");
+    const onMessage = async (event: MessageEvent) => {
+      const { status, name } = event.data;
+      bc.close();
+      if (status === "success") {
+        toast.success(`GitHub 登录成功${name ? `，欢迎 ${name}！` : "！"}`);
+        // Re-fetch session
+        try {
+          const res = await fetch("/api/auth/session", { credentials: "same-origin" });
+          const data = await res.json();
+          if (data.user) {
+            setUser(data.user);
+            setShowAuthModal(false);
+          }
+        } catch { /* ignore */ }
+      } else {
+        toast.error(`GitHub 登录失败: ${name || "未知错误"}`);
+      }
+    };
+    bc.addEventListener("message", onMessage);
+
+    // Also listen via postMessage (fallback for some browsers)
+    const onPostMessage = async (event: MessageEvent) => {
+      if (event.data?.type !== "yuamli-auth") return;
+      const { status, name } = event.data.data || event.data;
+      window.removeEventListener("message", onPostMessage);
+      bc.close();
+      if (status === "success") {
+        toast.success(`GitHub 登录成功${name ? `，欢迎 ${name}！` : "！"}`);
+        try {
+          const res = await fetch("/api/auth/session", { credentials: "same-origin" });
+          const data = await res.json();
+          if (data.user) {
+            setUser(data.user);
+            setShowAuthModal(false);
+          }
+        } catch { /* ignore */ }
+      } else {
+        toast.error(`GitHub 登录失败: ${name || "未知错误"}`);
+      }
+    };
+    window.addEventListener("message", onPostMessage);
+
+    // Cleanup if popup is closed without completing
+    const checkClosed = setInterval(() => {
+      if (popup?.closed) {
+        clearInterval(checkClosed);
+        bc.close();
+        window.removeEventListener("message", onPostMessage);
+      }
+    }, 500);
+
+    // Auto-cleanup listeners after 3 minutes
+    setTimeout(() => {
+      bc.close();
+      window.removeEventListener("message", onPostMessage);
+      clearInterval(checkClosed);
+    }, 180000);
   }
 
   return (

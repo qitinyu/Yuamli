@@ -8,7 +8,7 @@ import CommentItem from "./CommentItem"
 import CommentForm from "./CommentForm"
 import type { Comment } from "@/store/use-comment-store"
 
-export default function CommentList() {
+export default function CommentList({ pageId = "" }: { pageId?: string }) {
   const { comments, loading, setComments, setLoading, replyingTo, refreshKey } =
     useCommentStore()
   const inited = useRef(false)
@@ -16,7 +16,8 @@ export default function CommentList() {
   const fetchComments = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch("/api/comments")
+      const url = pageId ? `/api/comments?pageId=${encodeURIComponent(pageId)}` : "/api/comments"
+      const res = await fetch(url)
       const data = await res.json()
       if (res.ok) {
         const list = data.comments as Comment[]
@@ -109,6 +110,7 @@ export default function CommentList() {
             replyTo={{ id: replyingTo.authorId, name: replyingTo.name }}
             onSubmitted={fetchComments}
             autoFocus
+            pageId={pageId}
           />
         </div>
       )}

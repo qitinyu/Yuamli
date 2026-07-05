@@ -1,20 +1,18 @@
 'use client'
 
-import { useEffect, useCallback, useRef } from "react"
+import { Suspense, useEffect, useCallback, useRef, useMemo } from "react"
 import { useCommentStore } from "@/store/use-comment-store"
+import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import { Badge } from "@/components/ui/badge"
 import CommentList from "@/components/comment-system/CommentList"
 import CommentForm from "@/components/comment-system/CommentForm"
 import AuthModal from "@/components/comment-system/AuthModal"
-import { LogOut, MessageCircleHeart, User } from "lucide-react"
+import { MessageCircleHeart, Loader2 } from "lucide-react"
 
-export default function Home() {
-  const { user, setUser, setShowAuthModal } = useCommentStore()
-  const ghHandledRef = useRef(false)
+function CommentPage() {
+  const { setUser } = useCommentStore()
+  const searchParams = useSearchParams()
+  const pageId = searchParams.get("pageId") || ""
 
   const fetchSession = useCallback(async (): Promise<boolean> => {
     try {
@@ -33,94 +31,82 @@ export default function Home() {
   // Initial session fetch
   useEffect(() => { fetchSession() }, [fetchSession])
 
-  // Handle GitHub OAuth callback with retry mechanism
+  // Listen for BroadcastChannel messages (from popup OAuth in iframe context)
   useEffect(() => {
-    if (ghHandledRef.current) return
-    const params = new URLSearchParams(window.location.search)
-    const ghLogin = params.get("github_login")
-    const ghError = params.get("github_error")
-
-    if (ghError) {
-      ghHandledRef.current = true
-      toast.error("GitHub 登录失败: " + decodeURIComponent(ghError))
-      window.history.replaceState({}, "", "/")
-      return
-    }
-
-    if (ghLogin !== "success") return
-    ghHandledRef.current = true
-
-    const ghName = params.get("gh_name")
-    window.history.replaceState({}, "", "/")
-
-    // Retry fetching session up to 3 times with increasing delay
-    // This handles edge cases where the cookie might not be immediately available
-    let attempts = 0
-    const maxAttempts = 3
-    const tryFetch = async () => {
-      const success = await fetchSession()
-      if (success) {
-        toast.success(`GitHub 登录成功${ghName ? `，欢迎 ${decodeURIComponent(ghName)}！` : "！"}`)
-      } else if (attempts < maxAttempts) {
-        attempts++
-        setTimeout(tryFetch, 300 * attempts) // 300ms, 600ms, 900ms
-      } else {
-        toast.error("GitHub 登录后未能获取会话，请刷新页面重试")
+    const bc = new BroadcastChannel("yuamli-auth")
+    const onMessage = async (event: MessageEvent) => {
+      const { status, name } = event.data
+      if (status === "success") {
+        toast.success(`GitHub 登录成功${name ? `，欢迎 ${name}！` : "！"}`)
+        await fetchSession()
+      } else if (status === "error") {
+        toast.error(`GitHub 登录失败: ${name || "未知错误"}`)
       }
     }
-    // Small initial delay to ensure cookie is available
-    setTimeout(tryFetch, 100)
+    bc.addEventListener("message", onMessage)
+    return () => { bc.close() }
   }, [fetchSession])
 
-  const handleLogout = async () => {
-    try { await fetch("/api/auth/session", { method: "POST", credentials: "same-origin" }); setUser(null); toast.success("已退出登录") }
-    catch { /* ignore */ }
-  }
+  // Also listen via postMessage (fallback)
+  useEffect(() => {
+    const onPostMessage = async (event: MessageEvent) => {
+      if (event.data?.type !== "yuamli-auth") return
+      const { status, name } = event.data.data || event.data
+      if (status === "success") {
+        toast.success(`GitHub 登录成功${name ? `，欢迎 ${name}！` : "！"}`)
+        await fetchSession()
+      } else if (status === "error") {
+        toast.error(`GitHub 登录失败: ${name || "未知错误"}`)
+      }
+    }
+    window.addEventListener("message", onPostMessage)
+    return () => { window.removeEventListener("message", onPostMessage) }
+  }, [fetchSession])
 
-  const getInitial = (name: string) => name.charAt(0).toUpperCase()
+  // Memoize pageId to avoid unnecessary re-renders of children
+  const stablePageId = useMemo(() => pageId, [pageId])
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-stone-50 to-white">
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+    <div className="min-h-0 flex flex-col bg-gradient-to-b from-stone-50 to-white">
+      {/* No navbar — clean embed mode */}
+      <main className="flex-1 w-full px-4 py-4">
+        {/* Title — only show in standalone guestbook mode (no pageId) */}
+        {!pageId && (
+          <div className="flex items-center gap-2.5 mb-6 max-w-2xl mx-auto">
             <MessageCircleHeart className="h-5 w-5 text-emerald-600" />
             <h1 className="text-base font-semibold tracking-tight">留言板</h1>
-            <Badge variant="secondary" className="text-[10px] h-4 font-normal">v1.0.3</Badge>
           </div>
-          <div className="flex items-center gap-2">
-            {user ? (
-              <>
-                <div className="flex items-center gap-2">
-                  <Avatar className="h-7 w-7">
-                    <AvatarImage src={user.avatar} alt={user.name} />
-                    <AvatarFallback className="bg-emerald-100 text-emerald-700 text-[10px] font-medium">{getInitial(user.name)}</AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm font-medium hidden sm:inline">{user.name}</span>
-                </div>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout} title="退出登录"><LogOut className="h-4 w-4" /></Button>
-              </>
-            ) : (
-              <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setShowAuthModal(true)}>
-                <User className="h-3.5 w-3.5" /> 登录
-              </Button>
-            )}
-
-          </div>
+        )}
+        <div className={pageId ? "" : "max-w-2xl mx-auto"}>
+          <section className="mb-6">
+            <CommentForm onSubmitted={() => {}} pageId={stablePageId} />
+          </section>
+          <section>
+            <CommentList pageId={stablePageId} />
+          </section>
         </div>
-      </header>
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-6">
-        <section className="mb-8"><CommentForm onSubmitted={() => {}} /></section>
-        <Separator className="mb-6" />
-        <section><CommentList /></section>
       </main>
-      <footer className="border-t bg-white/60 backdrop-blur-sm">
-        <div className="max-w-2xl mx-auto px-4 py-4 text-center">
-          <p className="text-xs text-muted-foreground">Powered by <span className="font-medium text-foreground">Yuamli</span> v1.0.3</p>
-        </div>
-      </footer>
+      {/* Footer — only in standalone mode */}
+      {!pageId && (
+        <footer className="border-t bg-white/60 backdrop-blur-sm">
+          <div className="max-w-2xl mx-auto px-4 py-3 text-center">
+            <p className="text-xs text-muted-foreground">Powered by <span className="font-medium text-foreground">Yuamli</span> v1.0.4</p>
+          </div>
+        </footer>
+      )}
       <AuthModal />
-
     </div>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-0 flex items-center justify-center bg-gradient-to-b from-stone-50 to-white py-10">
+        <Loader2 className="h-6 w-6 animate-spin text-stone-400" />
+      </div>
+    }>
+      <CommentPage />
+    </Suspense>
   )
 }

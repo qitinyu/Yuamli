@@ -15,6 +15,7 @@ export interface Comment {
   replyTo: { id: string; name: string } | null;
   isPinned: boolean;
   isFeatured: boolean;
+  pageId: string;
   createdAt: string;
   updatedAt: string;
   replies?: Comment[];

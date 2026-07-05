@@ -21,7 +21,6 @@ const DEFAULT_CONFIG = {
   notifyTemplate:
     "您收到一条新留言：\n\n{author}：{content}\n\n时间：{time}",
   siteName: "Yuamli",
-  // SMTP defaults (QQ Mail)
   smtpHost: "smtp.qq.com",
   smtpPort: 465,
   smtpUser: "",
