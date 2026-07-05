@@ -81,23 +81,12 @@ export default function AdminPage() {
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-
-  // PageId filter
   const [pageIdFilter, setPageIdFilter] = useState("")
 
   // Settings form
   const [notifyEmail, setNotifyEmail] = useState("")
   const [notifyEnabled, setNotifyEnabled] = useState(false)
   const [notifyTemplate, setNotifyTemplate] = useState("")
-
-  // SMTP config
-  const [smtpHost, setSmtpHost] = useState("smtp.qq.com")
-  const [smtpPort, setSmtpPort] = useState(465)
-  const [smtpUser, setSmtpUser] = useState("")
-  const [smtpPass, setSmtpPass] = useState("")
-  const [smtpPassMasked, setSmtpPassMasked] = useState("")
-  const [testingNotify, setTestingNotify] = useState(false)
-  const [savingSettings, setSavingSettings] = useState(false)
 
   // Password change form
   const [oldPwd, setOldPwd] = useState("")
@@ -134,16 +123,6 @@ export default function AdminPage() {
     } finally {
       setLoading(false)
     }
-    // Fetch SMTP config
-    fetch("/api/admin/notify")
-      .then(r => r.json())
-      .then(data => {
-        if (data.smtpHost) setSmtpHost(data.smtpHost)
-        if (data.smtpPort) setSmtpPort(data.smtpPort)
-        if (data.smtpUser) setSmtpUser(data.smtpUser)
-        if (data.smtpPass) setSmtpPassMasked(data.smtpPass)
-      })
-      .catch(() => {})
   }
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -217,16 +196,6 @@ export default function AdminPage() {
     } catch {
       // ignore
     }
-    // Fetch SMTP config
-    fetch("/api/admin/notify")
-      .then(r => r.json())
-      .then(data => {
-        if (data.smtpHost) setSmtpHost(data.smtpHost)
-        if (data.smtpPort) setSmtpPort(data.smtpPort)
-        if (data.smtpUser) setSmtpUser(data.smtpUser)
-        if (data.smtpPass) setSmtpPassMasked(data.smtpPass)
-      })
-      .catch(() => {})
   }
 
   // Comment actions
@@ -303,65 +272,24 @@ export default function AdminPage() {
 
   // Settings save
   const saveSettings = async () => {
-    setSavingSettings(true)
     try {
-      const payload: Record<string, unknown> = {
-        email: notifyEmail,
-        enabled: notifyEnabled,
-        template: notifyTemplate,
-        smtpHost,
-        smtpPort,
-        smtpUser,
-      }
-      if (smtpPass && smtpPass !== smtpPassMasked) {
-        payload.smtpPass = smtpPass
-      }
       const res = await fetch("/api/admin/notify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          email: notifyEmail,
+          enabled: notifyEnabled,
+          template: notifyTemplate,
+        }),
       })
       if (res.ok) {
         toast.success("设置已保存")
-        setSmtpPassMasked("********")
-        setSmtpPass("")
         await fetchAdminData()
       } else {
         toast.error("保存失败")
       }
     } catch {
       toast.error("保存失败")
-    } finally {
-      setSavingSettings(false)
-    }
-  }
-
-  const testNotify = async () => {
-    setTestingNotify(true)
-    try {
-      const payload: Record<string, unknown> = {
-        action: "test",
-        email: notifyEmail,
-        smtpHost,
-        smtpPort,
-        smtpUser,
-      }
-      if (smtpPass) payload.smtpPass = smtpPass
-      const res = await fetch("/api/admin/notify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-      const data = await res.json()
-      if (data.ok) {
-        toast.success(data.message)
-      } else {
-        toast.error(data.message)
-      }
-    } catch {
-      toast.error("测试失败")
-    } finally {
-      setTestingNotify(false)
     }
   }
 
@@ -600,23 +528,17 @@ export default function AdminPage() {
                 <div className="flex items-center gap-2 mb-4">
                   <span className="text-xs text-stone-500">页面筛选:</span>
                   <div className="relative">
-                    <select
-                      value={pageIdFilter}
-                      onChange={e => setPageIdFilter(e.target.value)}
-                      className="appearance-none pl-3 pr-7 py-1.5 rounded-lg border border-stone-300 text-sm bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none cursor-pointer"
-                    >
+                    <select value={pageIdFilter} onChange={e => setPageIdFilter(e.target.value)}
+                      className="appearance-none pl-3 pr-7 py-1.5 rounded-lg border border-stone-300 text-sm bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none cursor-pointer">
                       <option value="">全部页面</option>
                       <option value="__guestbook__">留言板（无 pageId）</option>
-                      {allPageIds.map(pid => (
-                        <option key={pid} value={pid}>{pid}</option>
-                      ))}
+                      {allPageIds.map(pid => <option key={pid} value={pid}>{pid}</option>)}
                     </select>
                     <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-stone-400 pointer-events-none" />
                   </div>
                 </div>
               )
             })()}
-
             {/* Batch actions */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2 flex-wrap">
@@ -679,7 +601,7 @@ export default function AdminPage() {
                         className="mt-1 rounded border-stone-300"
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <div className="flex items-center gap-2 mb-1">
                           <span className="font-medium text-sm text-stone-900">{c.author.name}</span>
                           {c.author.type === "github" && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">GitHub</span>
@@ -887,88 +809,16 @@ export default function AdminPage() {
                   className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm font-mono"
                 />
                 <p className="text-xs text-stone-400 mt-1">
-                  可用变量: {"{author}"}, {"{content}"}, {"{time}"}, {"{siteName}"}
+                  可用变量: {"{author}"}, {"{content}"}, {"{time}"}
                 </p>
               </div>
 
-              {/* SMTP Configuration */}
-              <div className="rounded-lg border border-stone-200 bg-stone-50 p-4 space-y-3">
-                <div className="flex items-center gap-1.5">
-                  <Lock className="h-3.5 w-3.5 text-stone-400" />
-                  <span className="text-sm font-medium text-stone-700">SMTP 邮件服务配置</span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2">
-                    <label className="block text-xs text-stone-500 mb-1">SMTP 服务器</label>
-                    <input
-                      type="text"
-                      value={smtpHost}
-                      onChange={e => setSmtpHost(e.target.value)}
-                      placeholder="smtp.qq.com"
-                      className="w-full px-3 py-1.5 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-stone-500 mb-1">端口</label>
-                    <input
-                      type="number"
-                      value={smtpPort}
-                      onChange={e => setSmtpPort(Number(e.target.value) || 465)}
-                      className="w-full px-3 py-1.5 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs text-stone-500 mb-1">发件邮箱（SMTP 用户名）</label>
-                  <input
-                    type="email"
-                    value={smtpUser}
-                    onChange={e => setSmtpUser(e.target.value)}
-                    placeholder="123456789@qq.com"
-                    className="w-full px-3 py-1.5 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs text-stone-500 mb-1">SMTP 授权码</label>
-                  <input
-                    type="password"
-                    value={smtpPass}
-                    onChange={e => setSmtpPass(e.target.value)}
-                    placeholder={smtpPassMasked ? "已配置，留空则不修改" : "QQ邮箱授权码（非登录密码）"}
-                    className="w-full px-3 py-1.5 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm"
-                  />
-                </div>
-
-                <div className="rounded-md bg-blue-50 border border-blue-100 p-3">
-                  <p className="text-xs text-blue-700 leading-relaxed">
-                    QQ邮箱授权码获取：登录 QQ邮箱网页版 → 设置 → 账户 → 开启 IMAP/SMTP 服务 → 按提示获取16位授权码。授权码只需设置一次，后续无需重复获取。
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={saveSettings}
-                  disabled={savingSettings}
-                  className="px-4 py-2 rounded-lg bg-stone-800 text-white text-sm font-medium hover:bg-stone-900 transition-colors disabled:opacity-50"
-                >
-                  {savingSettings ? "保存中..." : "保存设置"}
-                </button>
-                <button
-                  onClick={testNotify}
-                  disabled={testingNotify || (!notifyEmail && !smtpUser)}
-                  className="px-4 py-2 rounded-lg border border-stone-300 text-stone-700 text-sm font-medium hover:bg-stone-100 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-                >
-                  {testingNotify ? (
-                    <><Loader2 className="h-3.5 w-3.5 animate-spin" /> 发送中...</>
-                  ) : (
-                    "发送测试邮件"
-                  )}
-                </button>
-              </div>
+              <button
+                onClick={saveSettings}
+                className="px-4 py-2 rounded-lg bg-stone-800 text-white text-sm font-medium hover:bg-stone-900 transition-colors"
+              >
+                保存设置
+              </button>
             </div>
           </div>
         )}

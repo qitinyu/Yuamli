@@ -54,14 +54,10 @@ export default function CommentForm({
       suffix +
       content.substring(end)
     setContent(newContent)
-    // Restore cursor
     setTimeout(() => {
       textarea.focus()
       const newPos = start + prefix.length + (selected?.length || 2)
-      textarea.setSelectionRange(
-        start + prefix.length,
-        newPos
-      )
+      textarea.setSelectionRange(start + prefix.length, newPos)
     }, 0)
   }
 
@@ -126,10 +122,7 @@ export default function CommentForm({
           <span className="text-muted-foreground">
             回复 <span className="font-medium text-foreground">@{replyTo.name}</span>
           </span>
-          <button
-            onClick={handleCancelReply}
-            className="ml-auto text-muted-foreground hover:text-foreground"
-          >
+          <button onClick={handleCancelReply} className="ml-auto text-muted-foreground hover:text-foreground">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -159,14 +152,7 @@ export default function CommentForm({
         <div className="flex items-center gap-0.5">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => insertMarkdown("**", "**")}
-                type="button"
-                disabled={!user}
-              >
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => insertMarkdown("**", "**")} type="button" disabled={!user}>
                 <Bold className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
@@ -174,14 +160,7 @@ export default function CommentForm({
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => insertMarkdown("*", "*")}
-                type="button"
-                disabled={!user}
-              >
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => insertMarkdown("*", "*")} type="button" disabled={!user}>
                 <Italic className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
@@ -189,14 +168,7 @@ export default function CommentForm({
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => insertMarkdown("[", "](url)")}
-                type="button"
-                disabled={!user}
-              >
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => insertMarkdown("[", "](url)")} type="button" disabled={!user}>
                 <Link className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
@@ -204,36 +176,17 @@ export default function CommentForm({
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => insertMarkdown("\n- ")}
-                type="button"
-                disabled={!user}
-              >
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => insertMarkdown("\n- ")} type="button" disabled={!user}>
                 <List className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>列表</TooltipContent>
           </Tooltip>
-
           <div className="mx-1.5 h-4 w-px bg-border" />
-
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => setShowPreview(!showPreview)}
-                type="button"
-              >
-                {showPreview ? (
-                  <EyeOff className="h-3.5 w-3.5" />
-                ) : (
-                  <Eye className="h-3.5 w-3.5" />
-                )}
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowPreview(!showPreview)} type="button">
+                {showPreview ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
               </Button>
             </TooltipTrigger>
             <TooltipContent>{showPreview ? "编辑" : "预览"}</TooltipContent>
@@ -242,17 +195,8 @@ export default function CommentForm({
 
         <div className="flex items-center gap-2">
           {replyTo && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={handleCancelReply}
-            >
-              取消
-            </Button>
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={handleCancelReply}>取消</Button>
           )}
-
-          {/* Login button / Avatar + Logout — to the left of send button */}
           {user ? (
             <>
               <div className="flex items-center gap-1.5 mr-1">
@@ -262,18 +206,11 @@ export default function CommentForm({
                     {getInitial(user.name)}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-xs font-medium text-muted-foreground hidden sm:inline max-w-[80px] truncate">
-                  {user.name}
-                </span>
+                <span className="text-xs font-medium text-muted-foreground hidden sm:inline max-w-[80px] truncate">{user.name}</span>
               </div>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                    onClick={handleLogout}
-                  >
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={handleLogout}>
                     <LogOut className="h-3.5 w-3.5" />
                   </Button>
                 </TooltipTrigger>
@@ -281,23 +218,11 @@ export default function CommentForm({
               </Tooltip>
             </>
           ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 text-xs mr-1"
-              onClick={() => setShowAuthModal(true)}
-            >
-              <User className="h-3.5 w-3.5" />
-              登录
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs mr-1" onClick={() => setShowAuthModal(true)}>
+              <User className="h-3.5 w-3.5" /> 登录
             </Button>
           )}
-
-          <Button
-            size="sm"
-            className="h-8 gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700"
-            onClick={handleSubmit}
-            disabled={submitting || !content.trim()}
-          >
+          <Button size="sm" className="h-8 gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleSubmit} disabled={submitting || !content.trim()}>
             <Send className="h-3.5 w-3.5" />
             {submitting ? "发送中..." : "发送"}
           </Button>

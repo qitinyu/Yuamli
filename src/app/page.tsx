@@ -1,13 +1,13 @@
 'use client'
 
-import { Suspense, useEffect, useCallback, useRef, useMemo } from "react"
+import { Suspense, useEffect, useCallback, useMemo } from "react"
 import { useCommentStore } from "@/store/use-comment-store"
 import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import CommentList from "@/components/comment-system/CommentList"
 import CommentForm from "@/components/comment-system/CommentForm"
 import AuthModal from "@/components/comment-system/AuthModal"
-import { MessageCircleHeart, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
 
 function CommentPage() {
   const { setUser } = useCommentStore()
@@ -18,40 +18,33 @@ function CommentPage() {
     try {
       const res = await fetch("/api/auth/session", { credentials: "same-origin" })
       const data = await res.json()
-      if (data.user) {
-        setUser(data.user)
-        return true
-      }
+      if (data.user) { setUser(data.user); return true }
       return false
-    } catch {
-      return false
-    }
+    } catch { return false }
   }, [setUser])
 
-  // Initial session fetch
   useEffect(() => { fetchSession() }, [fetchSession])
 
-  // Listen for BroadcastChannel messages (from popup OAuth in iframe context)
+  // Listen for BroadcastChannel (popup OAuth result)
   useEffect(() => {
     const bc = new BroadcastChannel("yuamli-auth")
-    const onMessage = async (event: MessageEvent) => {
-      const { status, name } = event.data
+    bc.addEventListener("message", async (e) => {
+      const { status, name } = e.data
       if (status === "success") {
         toast.success(`GitHub 登录成功${name ? `，欢迎 ${name}！` : "！"}`)
         await fetchSession()
       } else if (status === "error") {
         toast.error(`GitHub 登录失败: ${name || "未知错误"}`)
       }
-    }
-    bc.addEventListener("message", onMessage)
-    return () => { bc.close() }
+    })
+    return () => bc.close()
   }, [fetchSession])
 
-  // Also listen via postMessage (fallback)
+  // Fallback: postMessage listener
   useEffect(() => {
-    const onPostMessage = async (event: MessageEvent) => {
-      if (event.data?.type !== "yuamli-auth") return
-      const { status, name } = event.data.data || event.data
+    const handler = async (e: MessageEvent) => {
+      if (e.data?.type !== "yuamli-auth") return
+      const { status, name } = e.data.data || e.data
       if (status === "success") {
         toast.success(`GitHub 登录成功${name ? `，欢迎 ${name}！` : "！"}`)
         await fetchSession()
@@ -59,24 +52,15 @@ function CommentPage() {
         toast.error(`GitHub 登录失败: ${name || "未知错误"}`)
       }
     }
-    window.addEventListener("message", onPostMessage)
-    return () => { window.removeEventListener("message", onPostMessage) }
+    window.addEventListener("message", handler)
+    return () => window.removeEventListener("message", handler)
   }, [fetchSession])
 
-  // Memoize pageId to avoid unnecessary re-renders of children
   const stablePageId = useMemo(() => pageId, [pageId])
 
   return (
     <div className="min-h-0 flex flex-col bg-gradient-to-b from-stone-50 to-white">
-      {/* No navbar — clean embed mode */}
       <main className="flex-1 w-full px-4 py-4">
-        {/* Title — only show in standalone guestbook mode (no pageId) */}
-        {!pageId && (
-          <div className="flex items-center gap-2.5 mb-6 max-w-2xl mx-auto">
-            <MessageCircleHeart className="h-5 w-5 text-emerald-600" />
-            <h1 className="text-base font-semibold tracking-tight">留言板</h1>
-          </div>
-        )}
         <div className={pageId ? "" : "max-w-2xl mx-auto"}>
           <section className="mb-6">
             <CommentForm onSubmitted={() => {}} pageId={stablePageId} />
@@ -86,7 +70,6 @@ function CommentPage() {
           </section>
         </div>
       </main>
-      {/* Footer — only in standalone mode */}
       {!pageId && (
         <footer className="border-t bg-white/60 backdrop-blur-sm">
           <div className="max-w-2xl mx-auto px-4 py-3 text-center">

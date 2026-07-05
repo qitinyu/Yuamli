@@ -79,7 +79,6 @@ export async function POST(request: NextRequest) {
 
     const saved = await addComment(comment);
 
-    // --- Send email notification (fire-and-forget, non-blocking) ---
     sendNotification(comment).catch((err) => {
       console.error("[notify] Background email failed:", err.message || err);
     });
@@ -93,10 +92,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * Background: send email notification if enabled and configured.
- * This runs after the comment response is sent — non-blocking.
- */
 async function sendNotification(comment: Comment): Promise<void> {
   try {
     const config = await getConfig();
@@ -135,7 +130,6 @@ async function sendNotification(comment: Comment): Promise<void> {
       html,
     });
   } catch (err) {
-    // Silent failure — email notification should never block the main flow
     console.error("[notify] sendNotification error:", err);
   }
 }
