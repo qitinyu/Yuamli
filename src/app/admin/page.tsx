@@ -867,7 +867,7 @@ export default function AdminPage() {
       {/* 后台页脚*/}
       <footer className="border-t bg-white/60 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto px-4 py-4 text-center">
-          <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.0.4.1</p>
+          <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.0.5</p>
         </div>
       </footer>
     </div>

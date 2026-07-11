@@ -73,7 +73,7 @@ function CommentPage() {
       {!pageId && (
         <footer className="border-t bg-white/60 backdrop-blur-sm">
           <div className="max-w-2xl mx-auto px-4 py-3 text-center">
-            <p className="text-xs text-muted-foreground">Powered by <span className="font-medium text-foreground">Yuamli</span> v1.0.4</p>
+            <p className="text-xs text-muted-foreground">Powered by <span className="font-medium text-foreground">Yuamli</span> v1.0.5</p>
           </div>
         </footer>
       )}
