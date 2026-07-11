@@ -7,7 +7,7 @@
 - **双登录方式**：GitHub OAuth 授权登录 + 游客账号注册/登录（QQ 号 + 密码）
 - **嵌套回复**：无限层级嵌套，递归树形渲染
 - **Markdown 支持**：留言内容支持 Markdown 基础语法，支持实时预览
-- **后台管理**：内置管理面板，支持留言批量管理（删除 / 置顶 / 精华）、用户管理
+- **后台管理**：独立后台页面 (`/admin`)，支持留言批量管理（删除 / 置顶 / 精华）、用户管理、密码修改
 - **数据备份**：一键导出全部数据为 JSON，支持覆盖 / 合并两种导入模式
 - **灵活存储**：本地开发使用 JSON 文件存储，部署到 Vercel 时自动切换至 Vercel KV（Redis REST API）
 - **响应式 UI**：基于 shadcn/ui 组件库，适配移动端与桌面端
@@ -68,6 +68,8 @@ npm run dev
    - **Authorization callback URL**：`http://localhost:3000/api/auth/github/callback`（本地）或 `https://你的域名/api/auth/github/callback`（生产）
 4. 记录 **Client ID** 和 **Client Secret**，填入 `.env.local`
 
+> **建议**：为本地开发和生产环境分别创建 OAuth App，避免频繁修改回调地址。
+
 ### 部署
 
 #### Vercel 部署（推荐）
@@ -80,8 +82,6 @@ npm run dev
 6. 更新 GitHub OAuth App 的 callback URL 为 Vercel 分配的域名
 7. 重新部署生效
 
-详细步骤请参阅 [整体操作流程.md](./整体操作流程.md)。
-
 #### 自建服务器
 
 1. `npm run build && npm start` 或使用 Caddy / Nginx 反向代理
@@ -93,9 +93,9 @@ npm run dev
 ```
 src/
 ├── app/
-│   ├── page.tsx                    # 主页面
+│   ├── page.tsx                    # 主页面（留言板）
 │   ├── layout.tsx                  # 根布局
-│   ├── globals.css                 # 全局样式
+│   ├── admin/page.tsx              # 独立后台管理页面
 │   └── api/
 │       ├── auth/
 │       │   ├── login/route.ts      # 游客登录
@@ -106,6 +106,7 @@ src/
 │       │       └── callback/route.ts # GitHub OAuth 回调
 │       ├── comments/
 │       │   ├── route.ts            # 留言列表 / 新建留言
+│       │   ├── guest/route.ts      # 游客快捷留言
 │       │   └── [id]/route.ts       # 编辑 / 删除单条留言
 │       └── admin/
 │           ├── route.ts            # 管理员认证 / 数据
@@ -114,20 +115,58 @@ src/
 │           └── comments/route.ts   # 批量留言管理
 ├── components/
 │   ├── comment-system/             # 留言系统业务组件
+│   │   ├── AuthModal.tsx           # 登录 / 注册弹窗
+│   │   ├── CommentForm.tsx         # 留言编辑器
+│   │   ├── CommentItem.tsx         # 单条留言（递归渲染）
+│   │   ├── CommentList.tsx         # 留言列表 + 折叠
+│   │   └── AdminPanel.tsx          # 前台快捷管理面板
 │   └── ui/                         # shadcn/ui 基础组件
 ├── lib/
 │   ├── adapter.ts                  # 存储适配器（JSON / KV 自动切换，零 SDK）
 │   ├── auth.ts                     # 会话与密码工具
 │   ├── storage.ts                  # 数据读写业务逻辑
+│   ├── db.ts                       # 数据库抽象层
 │   └── utils.ts                    # 通用工具
 ├── store/
 │   └── use-comment-store.ts        # Zustand 全局状态
 └── hooks/                          # React Hooks
 ```
 
-### 默认管理员密码
+### 后台管理
 
-请在首次部署后通过后台面板修改默认密码。
+- **访问地址**：`/admin`
+- **默认密码**：`20030723`（首次登录后请立即修改）
+- **功能**：留言管理（删除 / 置顶 / 精华 / 批量操作）、用户管理、密码修改、通知设置、数据导出 / 导入
+
+### API 概览
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| `POST` | `/api/auth/register` | 游客注册 |
+| `POST` | `/api/auth/login` | 游客登录 |
+| `GET` | `/api/auth/session` | 获取当前会话 |
+| `POST` | `/api/auth/session` | 退出登录 |
+| `GET` | `/api/comments` | 获取留言列表 |
+| `POST` | `/api/comments` | 发表留言 / 回复 |
+| `POST` | `/api/comments/guest` | 游客快捷留言 |
+| `PUT` | `/api/comments/[id]` | 编辑留言 |
+| `DELETE` | `/api/comments/[id]` | 删除留言 |
+| `POST` | `/api/admin` | 管理员登录 |
+| `GET` | `/api/admin/comments` | 获取全部留言（管理视图） |
+| `POST` | `/api/admin/comments` | 批量留言操作 |
+| `GET` | `/api/admin/data` | 导出数据 |
+| `POST` | `/api/admin/data` | 导入数据 |
+| `GET` | `/api/admin/notify` | 获取通知设置 |
+| `POST` | `/api/admin/notify` | 保存通知设置 |
+
+### 更新日志
+
+- **V-1.0.5** — 精简通知模块，保留配置接口便于扩展；清理冗余依赖
+- **V-1.0.4** — 修复 GitHub OAuth 回调后登录状态时序问题
+- **V-1.0.3** — 独立后台页面 `/admin`；通知配置界面；前台快捷管理入口
+- **V-1.0.2** — 后台管理系统，管理密码可修改
+- **V-1.0.1** — 修复 Vercel 部署 Cookie 问题；移除 `@vercel/kv` 依赖；数据备份功能
+- **V-1.0.0** — 初始版本
 
 ### License
 

@@ -3,21 +3,20 @@
 
 ---
 
-
 ## 项目介绍
 
 ### 简介
-- **版本**: V-1.0.3
+- **版本**: V-1.0.5
 - **作者**: YuQi
-- **技术支持**:z.ai-GLM5
+- **技术支持**: z.ai-GLM5
 - **许可**: MIT
-- **更新日期**: 2026-07-01
+- **更新日期**: 2026-07-11
 - **简介**: 基于 Next.js 16 的轻量级留言系统，支持 GitHub OAuth 登录、游客注册登录、无限嵌套回复、Markdown 语法、后台管理、数据备份导入导出。本地开发使用 JSON 文件存储，部署到 Vercel 时自动切换为 Vercel KV（Redis）。
 
 ### 功能特性
-- **用户系统**: GitHub OAuth 第三方登录为主,辅以QQ号注册/邮箱注册登录
+- **用户系统**: GitHub OAuth 第三方登录为主，辅以 QQ 号注册/邮箱注册登录
 - **评论系统**: 无限制嵌套回复、Markdown 语法支持、评论折叠/展开
-- **管理后台**: 密码保护、留言批量管理（删除/置顶/精华）、用户管理、邮箱通知设置
+- **管理后台**: 密码保护、留言批量管理（删除/置顶/精华）、用户管理、通知设置
 - **安全性**: Cookie 会话、管理员独立会话、密码哈希
 - **UI 设计**: 响应式布局、shadcn/ui 组件库、深色模式支持
 - **存储**: 纯 JSON 文件存储，无需数据库
@@ -45,9 +44,11 @@
 yuamli/
 ├── src/                          # 源代码
 │   ├── app/                      # Next.js App Router
-│   │   ├── page.tsx              # 主页面
+│   │   ├── page.tsx              # 主页面（留言板）
 │   │   ├── layout.tsx            # 根布局
 │   │   ├── globals.css           # 全局样式
+│   │   ├── admin/
+│   │   │   └── page.tsx          # 独立后台管理页面
 │   │   └── api/                  # API 路由
 │   │       ├── auth/
 │   │       │   ├── login/        # 登录
@@ -58,22 +59,26 @@ yuamli/
 │   │       │       └── callback/route.ts # 授权回调
 │   │       ├── comments/
 │   │       │   ├── route.ts      # 留言列表( GET ) / 新建( POST )
+│   │       │   ├── guest/route.ts     # 游客快捷留言
 │   │       │   └── [id]/route.ts # 编辑( PUT ) / 删除( DELETE )
 │   │       └── admin/
 │   │           ├── route.ts      # 管理员登录/数据
 │   │           ├── notify/route.ts    # 通知设置
-│   │           └── comments/route.ts  # 批量留言管理
+│   │           ├── comments/route.ts  # 批量留言管理
+│   │           └── data/route.ts      # 数据导出/导入
 │   ├── components/
 │   │   ├── comment-system/       # 留言系统组件
 │   │   │   ├── AuthModal.tsx     # 登录/注册弹窗
 │   │   │   ├── CommentForm.tsx   # 留言编辑器
 │   │   │   ├── CommentItem.tsx   # 单条留言（递归渲染）
 │   │   │   ├── CommentList.tsx   # 留言列表 + 折叠
-│   │   │   └── AdminPanel.tsx    # 后台管理面板
+│   │   │   └── AdminPanel.tsx    # 前台管理面板（弹窗）
 │   │   └── ui/                   # shadcn/ui 基础组件
 │   ├── lib/
 │   │   ├── storage.ts            # JSON 文件读写
 │   │   ├── auth.ts               # 会话/密码工具
+│   │   ├── adapter.ts            # 存储适配器（JSON/KV 自动切换）
+│   │   ├── db.ts                 # 数据库抽象层
 │   │   └── utils.ts              # 通用工具
 │   ├── store/
 │   │   └── use-comment-store.ts  # Zustand 全局状态
@@ -83,8 +88,10 @@ yuamli/
 │   ├── users.json                # 用户数据
 │   └── config.json               # 站点配置
 ├── public/                       # 静态资源
-│   ├── logo.svg
-│   └── robots.txt
+│   ├── logo.svg                  # Logo 图标
+│   ├── home.ico                  # 首页图标
+│   ├── favicon.ico               # 浏览器标签图标
+│   └── robots.txt                # 搜索引擎爬虫规则
 ├── .env.example                  # 环境变量模板
 ├── .gitignore                    # Git 忽略规则
 ├── package.json                  # 项目依赖
@@ -142,7 +149,7 @@ GITHUB_CLIENT_SECRET=978c6xxxxxxxxxxxxxxxc3281002
 
 
 >[!tip]
->这里的GitHub OAuth 建议创建开发和应用两份,否则就需要不停去更换回调地址会很麻烦,只是建议,可根据自己的实际情况进行选择.
+>这里的 GitHub OAuth 建议创建开发和应用两份，否则就需要不停去更换回调地址会很麻烦，只是建议，可根据自己的实际情况进行选择.
 1. 前往 [GitHub Developer Settings](https://github.com/settings/developers)
 2. 点击 **New OAuth App**
 3. 填写：
@@ -162,13 +169,13 @@ GITHUB_CLIENT_SECRET=978c6xxxxxxxxxxxxxxxc3281002
 |--------|------|------|
 | `NEXT_PUBLIC_GITHUB_CLIENT_ID` | 是 | GitHub OAuth App 的 Client ID（前端公开） |
 | `GITHUB_CLIENT_ID` | 是 | 同上（后端使用） |
-| `GITHUB_CLIENT_SECRET` | 是 | GitHub OAuth App 的 Client Secret（**保密且只能复制一次,建议截图保存,否则就要重新申请**） |
+| `GITHUB_CLIENT_SECRET` | 是 | GitHub OAuth App 的 Client Secret（**保密且只能复制一次，建议截图保存，否则就要重新申请**） |
 ---
 
 
 ## GitHub 仓库上传指南
 >[!note]
->本地开发测试完成后，需要将项目代码上传到 个人的GitHub 仓库。此时会产生部分不需要的文件，需要进行筛选后上传。
+>本地开发测试完成后，需要将项目代码上传到个人的 GitHub 仓库。此时会产生部分不需要的文件，需要进行筛选后上传。
 
 ### 需要上传的文件 ✅
 
@@ -176,7 +183,7 @@ GITHUB_CLIENT_SECRET=978c6xxxxxxxxxxxxxxxc3281002
 |-----------|------|
 | `src/` | 所有源代码（含 UI 组件） |
 | `data/` | JSON 数据文件（初始数据） |
-| `public/` | 静态资源（logo、robots.txt） |
+| `public/` | 静态资源（logo、图标、robots.txt） |
 | `.env.example` | 环境变量模板（**不含密钥**） |
 | `.gitignore` | Git 忽略规则 |
 | `package.json` | 项目依赖声明 |
@@ -193,13 +200,14 @@ GITHUB_CLIENT_SECRET=978c6xxxxxxxxxxxxxxxc3281002
 | 文件/目录 | 原因 |
 |-----------|------|
 | `.env` | **包含数据库路径等本地配置** |
-| `.env.local` | **包含 GitHub OAuth 密钥等敏感信息**,<br>多为本地开发测试配置环境 |
-| `node_modules/` | 依赖包,`pnpm install` 会自动生成 |
+| `.env.local` | **包含 GitHub OAuth 密钥等敏感信息**，多为本地开发测试配置环境 |
+| `node_modules/` | 依赖包，`pnpm install` 会自动生成 |
 | `.next/` | 构建缓存，每次 build 自动生成 |
 | `bun.lock` / `pnpm-lock.yaml` | 只保留你使用的包管理器的锁文件 |
 | `prisma/` | 未使用的 Prisma 配置 |
 | `upload/` | 临时上传目录 |
 | `scripts/` | 开发脚本（如有） |
+| `*.webp` / `*.jpg` / `*.png` | 辅助说明图片（如有） |
 
 ### 上传步骤
 
@@ -214,7 +222,7 @@ git add .
 git status
 
 # 4. 提交
-git commit -m "Yuamli V-1.0.0 初始版本"
+git commit -m "Yuamli V-1.0.5"
 
 # 5. 关联 GitHub 远程仓库（替换为你的仓库地址）
 git remote add origin https://github.com/你的用户名/你的仓库名.git
@@ -260,6 +268,7 @@ git push -u origin main
 - `KV_REST_API_READ_ONLY_TOKEN` — 只读 Token（项目未使用）
 
 > **验证方法**：进入 **Settings → Environment Variables**，确认能看到以上三个变量。
+
 - **存储机制说明**
 
 Yuamli 的数据存储会根据运行环境**自动切换**，无需手动配置：
@@ -273,9 +282,9 @@ Yuamli 的数据存储会根据运行环境**自动切换**，无需手动配置
 
 | KV Key / 文件名 | 内容 | 说明 |
 |-----------------|------|------|
-| `comments` | `comments.json` | 所有留言（含嵌套回复关系） |
-| `users` | `users.json` | 所有注册用户（游客 + GitHub） |
-| `config` | `config.json` | 站点配置（管理员密码、邮箱通知等） |
+| `yuamli:comments` / `comments.json` | 所有留言（含嵌套回复关系） |
+| `yuamli:users` / `users.json` | 所有注册用户（游客 + GitHub） |
+| `yuamli:config` / `config.json` | 站点配置（管理员密码、通知设置等） |
 
 > **为什么 Vercel 需要用 KV？** Vercel 的文件系统是只读的，无法写入 JSON 文件。Vercel KV 底层是 Upstash Redis，通过 REST API 通信，本项目已内置适配器，无需安装额外 SDK。
 
@@ -334,7 +343,7 @@ server {
 }
 ```
 
-### 方式三：PM2 守护进程
+### 方式四：PM2 守护进程
 
 ```bash
 npm install -g pm2
@@ -348,8 +357,6 @@ pm2 startup
 ## GitHub OAuth 配置详解
 
 ### 创建 OAuth App
-
-
 
 ### 环境变量对应关系
 
@@ -376,17 +383,20 @@ GITHUB_CLIENT_SECRET=1a2b3c4d5e6f7g8h9i0j
 
 ## 后台管理
 
-### 访问后台
+### 访问方式
 
-1. 访问 `https://你的域名/admin`
-2. 输入管理密码（默认 `20030723`）
-3. 点击「登录」
+Yuamli 提供两种方式进入后台管理：
+
+1. **独立后台页面**：访问 `https://你的域名/admin`，输入管理密码登录
+2. **前台快捷入口**：在留言板页面顶部导航栏右侧点击盾牌图标（Shield），在弹出的管理面板中输入密码
+
+默认管理密码为 `20030723`，请首次部署后立即修改。
 
 ### 后台功能
 
 - **留言管理**：查看全部留言、删除、置顶、设为精华、批量操作
 - **用户列表**：查看注册用户信息
-- **设置**：修改密码、通知邮箱、通知模板
+- **设置**：修改管理密码、通知邮箱、通知模板
 - **数据**：导出/导入 JSON 备份
 
 ### 修改管理密码
@@ -399,44 +409,59 @@ GITHUB_CLIENT_SECRET=1a2b3c4d5e6f7g8h9i0j
    - 确认新密码
 4. 点击「保存」→ 密码立即生效，下次登录需使用新密码
 
-### 邮件通知集成
->[!tip]
->无须进行手动配置
+### 通知设置
 
-| 涉及文件 | 作用 |
-|------|------|
-| `src/lib/email.ts` | 核心邮件工具 — nodemailer 创建传输、验证 SMTP、发送通知、构建 HTML 模板 |
-| `src/lib/storage.ts` | SiteConfig 接口定义，包含 `smtpHost / smtpPort / smtpUser / smtpPass` 四个 SMTP 字段 |
-| `src/lib/adapter.ts` | DEFAULT_CONFIG 默认值，预填 `smtp.qq.com:465` |
-| `src/app/api/admin/notify/route.ts` | 后台 API — GET 读取 SMTP 配置（密码掩码）、PUT 保存配置、支持 `action:"test"` 发送测试邮件 |
-| `src/app/api/comments/route.ts` | 留言提交 API — 用户发留言后，fire-and-forget 异步调用 `sendNotification()`，不阻塞响应 |
+V-1.0.5 的通知功能提供了基础的配置界面，可在后台「设置」页面进行配置：
 
-### 触发位置
-用户提交留言 → addComment() → sendNotification()（异步，不等待结果）
-                                        ↓
-                              读取 config → 判断 notifyEnabled
-                                        ↓
-                              调用 email.ts 的 sendNotifyEmail()
-                                        ↓
-                              nodemailer → QQ SMTP 465 SSL → 发到 adminEmail
-### 配置方式
-访问 https://你的域名/admin 进入管理后台,输入正确密码进入设置页面，依次填写：
-|位置|说明|
-|:---:|:---:|
-|SMTP 服务器：|smtp.qq.com(保持默认)|
-|SMTP 端口：|465(保持默认)|
-|发件邮箱：|你的 QQ 邮箱地址|
-|SMTP 授权码：|QQ邮箱-设置-左侧账号与安全-安全设置-POP3/IMAP/SMTP/Exchange/CardDAV 服务（未/已开启-生成16 位授权码（非登录密码）-初次设置可以点击查看授权配置方法-点击复制授权码-回到后台粘贴授权码-保存后测试|
-|通知模板|您收到一条新留言：<br>{雨祁}：<br>{您有新的留言待查阅!!!}<br>时间：{time}|
-|站长收件邮箱：|接收通知的邮箱|
-|开启邮件通知：|打开开关|
-|点击 发送测试邮件 |验证配置是否正确|
+| 配置项 | 说明 |
+|--------|------|
+| 通知邮箱 | 接收留言通知的管理员邮箱地址 |
+| 启用通知 | 开关控制是否启用新留言通知 |
+| 通知模板 | 自定义通知内容模板，可用变量：`{author}`（留言者昵称）、`{content}`（留言内容）、`{time}`（留言时间） |
 
-配置通过 /api/admin/notify 保存到存储（本地 JSON 文件或 Vercel KV），授权码只在首次填写时保存，之后 GET 接口返回掩码值。
+配置保存后，当有新留言提交时系统会根据模板生成通知内容。如需实现邮件发送功能，可自行扩展 `src/lib/` 下的通知模块并对接 SMTP 服务。
+
+### 数据备份与恢复
+
+1. **自动检测**
+
+- Vercel KV 免费方案使用 **RAM-only** 存储，不具备持久化能力。当 Redis 实例发生重启或迁移时，数据可能丢失。系统在管理后台提供了手动备份功能。
+
+2. **导出格式**
+
+- 导出的 JSON 文件结构如下：
+
+```json
+{
+  "_meta": {
+    "exportedAt": "2026-07-11T13:30:00.000Z",
+    "version": "1.0.5",
+    "source": "Yuamli"
+  },
+  "comments": [ ... ],
+  "users": [ ... ],
+  "config": { ... }
+}
+```
+
+3. **导入流程**
+
+- 点击管理后台的 **导入数据** 按钮
+- 选择之前导出的 `.json` 文件
+- 选择导入模式：
+   - 弹出第一个对话框时点 **确定** = 覆盖模式（替换全部数据）
+   - 点 **取消** = 合并模式（只添加新记录）
+4. 确认操作后等待导入完成
+
+5. **导入安全**
+
+- 导入时会验证文件格式，非 Yuamli 备份文件会被拒绝
+- 覆盖模式有二次确认提示，防止误操作
+- 导入完成后页面数据自动刷新
 
 ---
 
-## 修改导航栏 (nav/版本号)
+## 修改导航栏 / 版本号
 
 导航栏定义在 `src/app/page.tsx` 的 `<header>` 区域。
 
@@ -444,11 +469,11 @@ GITHUB_CLIENT_SECRET=1a2b3c4d5e6f7g8h9i0j
 
 ```tsx
 // src/app/page.tsx 中的 header 部分
-<header className="border-b bg-white/60 backdrop-blur-sm sticky top-0 z-50">
-  <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-    <div className="flex items-center gap-2">
+<header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
+  <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
+    <div className="flex items-center gap-2.5">
       <MessageCircleHeart className="h-5 w-5 text-emerald-600" />
-      <h1 className="text-lg font-bold">Yuamli</h1>  {/* ← 修改这里 */}
+      <h1 className="text-base font-semibold tracking-tight">留言板</h1>  {/* ← 修改这里 */}
       <Badge variant="secondary" className="text-[10px] h-4 font-normal">v1.0.0</Badge>  {/* ← 版本号 */}
     </div>
     ...
@@ -456,7 +481,7 @@ GITHUB_CLIENT_SECRET=1a2b3c4d5e6f7g8h9i0j
 </header>
 ```
 
-## 修改页脚 (footer/版本号)
+## 修改页脚 / 版本号
 
 页脚定义在 `src/app/page.tsx` 的 `<footer>` 区域。
 
@@ -486,29 +511,26 @@ GITHUB_CLIENT_SECRET=1a2b3c4d5e6f7g8h9i0j
 <footer className="border-t bg-white/60 backdrop-blur-sm">
   <div className="max-w-3xl mx-auto px-4 py-4 text-center">
     <p className="text-xs text-stone-400">
-      Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.0.0
+      Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.0.2
       {/* ↑ 修改这里 */}
     </p>
   </div>
 </footer>
 ```
 
----
-
-
-### 4. layout.tsx 元数据
+### layout.tsx 元数据
 
 **文件**: `src/app/layout.tsx`
 
 ```tsx
 export const metadata: Metadata = {
   title: "Yuamli - 轻量留言系统",
-  description: "Yuamli V-1.0.0 轻量级留言系统...",  // ← 修改版本号
+  description: "Yuamli V-1.0.5 轻量级留言系统...",  // ← 修改版本号
   // ...
 };
 ```
 
-### 5. package.json
+### package.json
 
 **文件**: `package.json`
 
@@ -517,46 +539,6 @@ export const metadata: Metadata = {
   "version": "0.2.0"  // ← 修改版本号
 }
 ```
-
----
-
-### 数据备份与恢复
-
-1. **自动检测**
-
-- Vercel KV 免费方案使用 **RAM-only** 存储，不具备持久化能力。当 Redis 实例发生重启或迁移时，数据可能丢失。系统在管理后台提供了手动备份功能。
-
-2. **导出格式**
-
-- 导出的 JSON 文件结构如下：
-
-```json
-{
-  "_meta": {
-    "exportedAt": "2026-06-25T13:30:00.000Z",
-    "version": "1.0.1",
-    "source": "Yuamli"
-  },
-  "comments": [ ... ],
-  "users": [ ... ],
-  "config": { ... }
-}
-```
-
-3. **导入流程**
-
-- 点击管理后台的 **导入数据** 按钮
-- 选择之前导出的 `.json` 文件
-- 选择导入模式：
-   - 弹出第一个对话框时点 **确定** = 覆盖模式（替换全部数据）
-   - 点 **取消** = 合并模式（只添加新记录）
-4. 确认操作后等待导入完成
-
-5. **导入安全**
-
-- 导入时会验证文件格式，非 Yuamli 备份文件会被拒绝
-- 覆盖模式有二次确认提示，防止误操作
-- 导入完成后页面数据自动刷新
 
 ---
 
@@ -579,6 +561,7 @@ export const metadata: Metadata = {
 |------|------|------|
 | `GET` | `/api/comments` | 获取留言树（递归嵌套结构） |
 | `POST` | `/api/comments` | 发表留言或回复（需登录） |
+| `POST` | `/api/comments/guest` | 游客快捷留言（无需登录，仅限顶层留言） |
 | `PUT` | `/api/comments/[id]` | 编辑留言内容 |
 | `DELETE` | `/api/comments/[id]` | 删除留言及所有子回复 |
 
@@ -589,6 +572,7 @@ export const metadata: Metadata = {
 | `POST` | `/api/admin` | 管理员登录 |
 | `GET` | `/api/admin` | 获取用户列表 + 站点配置 |
 | `DELETE` | `/api/admin` | 退出管理 |
+| `GET` | `/api/admin/notify` | 获取通知设置（邮箱、开关、模板） |
 | `POST` | `/api/admin/notify` | 保存通知设置 |
 | `GET` | `/api/admin/comments` | 获取所有留言（管理视图，按时间倒序） |
 | `POST` | `/api/admin/comments` | 批量操作（`batch_delete` / `batch_pin` / `batch_unpin` / `batch_feature` / `batch_unfeature`） |
@@ -617,26 +601,37 @@ V-1.0.1 已移除 `@vercel/kv` 依赖，改为使用原生 `fetch` 调用 Redis 
 
 免费方案提供 30 MB 内存存储、100 ops/s 吞吐量。对于个人留言系统完全足够。唯一限制是 **RAM-only 无持久化**，建议定期使用管理后台的导出功能备份数据。
 
-
 ### Q: 可以部署到 Cloudflare Pages 等其他平台吗？
 
 可以，但需要注意：Cloudflare Pages 的构建产物是只读的，和 Vercel 一样需要外部存储。你需要自行对接 Cloudflare KV 或 D1 数据库，并修改 `src/lib/adapter.ts` 中的存储逻辑。
+
+### Q: 如何修改默认管理员密码？
+
+首次部署后，访问 `/admin` 页面，使用默认密码 `20030723` 登录，然后在「设置」标签页中修改密码。修改后立即生效，无需重启服务。
 
 ---
 
 ## 更新日志
 
-### V-1.0.0 (2026-06-23)
+### V-1.0.5 (2026-07-11)
 
-- 初始版本发布
-- QQ 号注册登录（主）、邮箱注册（辅）
-- GitHub OAuth 第三方登录
-- 无限制嵌套回复
-- Markdown 语法支持 + 实时预览
-- 后台管理：用户管理、留言批量管理（删除 / 置顶 / 精华）
-- 邮箱通知设置 + 自定义邮件模板
-- "记住我"登录（30 天免登录）
-- 响应式布局 + 深色模式
+- **优化**：精简通知模块，移除内置 SMTP 发送逻辑，保留通知配置接口，便于按需扩展
+- **优化**：清理冗余依赖，提升构建稳定性
+
+### V-1.0.4 (2026-07-05)
+
+- **修复**：修复部分场景下 GitHub OAuth 回调后登录状态未及时生效的问题
+
+### V-1.0.3 (2026-07-01)
+
+- **修改**：去除前台侧边栏后台管理入口，改为独立的 `/admin` 后台页面
+- **增加**：添加邮件通知功能配置界面（通知邮箱、开关、模板）
+- **增加**：添加 `AdminPanel` 前台快捷管理入口（导航栏盾牌图标）
+
+### V-1.0.2 (2026-06-27)
+
+- **修改**：改前台数据管理为后台数据管理
+- **增加**：添加 `/admin` 页面后台管理系统，管理密码可一键修改
 
 ### V-1.0.1 (2026-06-25)
 
@@ -647,10 +642,13 @@ V-1.0.1 已移除 `@vercel/kv` 依赖，改为使用原生 `fetch` 调用 Redis 
 - **新增**：数据备份功能 — 管理后台支持一键导出 / 导入全部数据（覆盖或合并模式）
 - **优化**：GitHub 回调增加重试机制，应对 CDN 边缘情况下的 Cookie 时序问题
 
-### V-1.0.2 (2026-06-27)
-- **修改**：改前台数据管理为后台数据管理
-- **增加**：添加`/admin`页后台管理系统,管理密码可一键修改
+### V-1.0.0 (2026-06-23)
 
-### V-1.0.3 (2026-07-01)
-- **修改**：去除前台侧边栏后台管理入口改为后台/admin入口
-- **增加**：添加邮件通知功能，目前支持QQ邮箱
+- 初始版本发布
+- QQ 号注册登录（主）、邮箱注册（辅）
+- GitHub OAuth 第三方登录
+- 无限制嵌套回复
+- Markdown 语法支持 + 实时预览
+- 后台管理：用户管理、留言批量管理（删除 / 置顶 / 精华）
+- "记住我"登录（30 天免登录）
+- 响应式布局 + 深色模式
