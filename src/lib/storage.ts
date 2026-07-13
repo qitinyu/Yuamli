@@ -213,3 +213,47 @@ export async function updateConfig(
   await writeData("config", newConfig);
   return newConfig;
 }
+
+// ==================== Changelog ====================
+
+export interface ChangelogEntry {
+  id: string;
+  version: string;
+  date: string;
+  type: "feature" | "fix" | "improvement" | "other";
+  content: string;
+  createdAt: string;
+}
+
+export async function getChangelog(): Promise<ChangelogEntry[]> {
+  return readData<ChangelogEntry[]>("changelog", []);
+}
+
+export async function addChangelogEntry(
+  entry: ChangelogEntry
+): Promise<ChangelogEntry> {
+  const entries = await getChangelog();
+  entries.unshift(entry);
+  await writeData("changelog", entries);
+  return entry;
+}
+
+export async function updateChangelogEntry(
+  id: string,
+  updates: Partial<Omit<ChangelogEntry, "id" | "createdAt">>
+): Promise<ChangelogEntry | null> {
+  const entries = await getChangelog();
+  const index = entries.findIndex((e) => e.id === id);
+  if (index === -1) return null;
+  entries[index] = { ...entries[index], ...updates };
+  await writeData("changelog", entries);
+  return entries[index];
+}
+
+export async function deleteChangelogEntry(id: string): Promise<boolean> {
+  const entries = await getChangelog();
+  const filtered = entries.filter((e) => e.id !== id);
+  if (filtered.length === entries.length) return false;
+  await writeData("changelog", filtered);
+  return true;
+}

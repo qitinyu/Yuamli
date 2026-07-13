@@ -1,0 +1,21 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/admin/page": "/admin",
+  "/api/admin/changelog/route": "/api/admin/changelog",
+  "/api/admin/comments/route": "/api/admin/comments",
+  "/api/admin/data/route": "/api/admin/data",
+  "/api/admin/notify/route": "/api/admin/notify",
+  "/api/admin/route": "/api/admin",
+  "/api/auth/github/callback/route": "/api/auth/github/callback",
+  "/api/auth/github/route": "/api/auth/github",
+  "/api/auth/login/route": "/api/auth/login",
+  "/api/auth/register/route": "/api/auth/register",
+  "/api/auth/session/route": "/api/auth/session",
+  "/api/comments/[id]/route": "/api/comments/[id]",
+  "/api/comments/guest/route": "/api/comments/guest",
+  "/api/comments/route": "/api/comments",
+  "/api/config/route": "/api/config",
+  "/api/route": "/api",
+  "/page": "/"
+}
