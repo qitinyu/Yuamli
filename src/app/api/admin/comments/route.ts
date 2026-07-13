@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/auth";
 import {
   getComments,
+  addComment,
   batchDeleteComments,
   batchUpdateComments,
 } from "@/lib/storage";
@@ -71,6 +72,40 @@ export async function POST(request: NextRequest) {
       case "batch_unfeature": {
         const count = await batchUpdateComments(ids, { isFeatured: false });
         return NextResponse.json({ ok: true, message: `已取消精华 ${count} 条留言` });
+      }
+      case "unified_reply": {
+        const { content } = body;
+        if (!content || typeof content !== "string" || content.trim().length === 0) {
+          return NextResponse.json(
+            { ok: false, message: "回复内容不能为空" },
+            { status: 400 }
+          );
+        }
+        const now = new Date().toISOString();
+        let count = 0;
+        for (const parentId of ids) {
+          const parent = await getComments().then(c => c.find(x => x.id === parentId));
+          if (!parent) continue;
+          await addComment({
+            id: crypto.randomUUID(),
+            content: content.trim(),
+            author: {
+              id: "admin",
+              name: "管理员",
+              avatar: "",
+              type: "guest",
+            },
+            parentId: parentId,
+            replyTo: { id: parent.author.id, name: parent.author.name },
+            isPinned: false,
+            isFeatured: false,
+            pageId: parent.pageId || "",
+            createdAt: now,
+            updatedAt: now,
+          });
+          count++;
+        }
+        return NextResponse.json({ ok: true, message: `已统一回复 ${count} 条留言` });
       }
       default:
         return NextResponse.json(

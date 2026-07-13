@@ -22,6 +22,11 @@ import {
   ChevronDown,
   Loader2,
   KeyRound,
+  RefreshCw,
+  Reply,
+  Plus,
+  X,
+  FileText,
 } from "lucide-react"
 
 interface CommentAuthor {
@@ -61,6 +66,8 @@ interface SiteConfig {
   notifyEnabled: boolean
   notifyTemplate: string
   siteName: string
+  footerHtml?: string
+  replyPresets?: string[]
 }
 
 type Tab = "comments" | "users" | "settings" | "data"
@@ -94,6 +101,20 @@ export default function AdminPage() {
   const [confirmPwd, setConfirmPwd] = useState("")
   const [pwdLoading, setPwdLoading] = useState(false)
 
+  // Unified reply
+  const [showUnifiedReply, setShowUnifiedReply] = useState(false)
+  const [unifiedReplyContent, setUnifiedReplyContent] = useState("")
+  const [unifiedReplyLoading, setUnifiedReplyLoading] = useState(false)
+
+  // Footer editor
+  const [footerHtml, setFooterHtml] = useState("")
+  const [footerLoading, setFooterLoading] = useState(false)
+
+  // Reply presets
+  const [replyPresets, setReplyPresets] = useState<string[]>([])
+  const [newPreset, setNewPreset] = useState("")
+  const [presetLoading, setPresetLoading] = useState(false)
+
   const inited = useRef(false)
 
   // Check existing session
@@ -115,6 +136,8 @@ export default function AdminPage() {
           setNotifyEmail(data.config?.adminEmail || "")
           setNotifyEnabled(data.config?.notifyEnabled || false)
           setNotifyTemplate(data.config?.notifyTemplate || "")
+          setFooterHtml(data.config?.footerHtml || "")
+          setReplyPresets(data.config?.replyPresets || [])
           await fetchComments()
         }
       }
@@ -165,6 +188,12 @@ export default function AdminPage() {
     }
   }
 
+  // Refresh all data
+  const handleRefresh = async () => {
+    await Promise.all([fetchComments(), fetchAdminData()])
+    toast.success("已刷新")
+  }
+
   const fetchComments = async () => {
     setDataLoading(true)
     try {
@@ -191,6 +220,8 @@ export default function AdminPage() {
           setNotifyEmail(data.config?.adminEmail || "")
           setNotifyEnabled(data.config?.notifyEnabled || false)
           setNotifyTemplate(data.config?.notifyTemplate || "")
+          setFooterHtml(data.config?.footerHtml || "")
+          setReplyPresets(data.config?.replyPresets || [])
         }
       }
     } catch {
@@ -220,6 +251,76 @@ export default function AdminPage() {
       }
     } catch {
       toast.error("操作失败")
+    }
+  }
+
+  // Unified reply to selected comments
+  const handleUnifiedReply = async () => {
+    if (selectedIds.size === 0) {
+      toast.warning("请先选择要回复的留言")
+      return
+    }
+    if (!unifiedReplyContent.trim()) {
+      toast.warning("请输入回复内容")
+      return
+    }
+    setUnifiedReplyLoading(true)
+    try {
+      const res = await fetch("/api/admin/comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "unified_reply",
+          ids: [...selectedIds],
+          content: unifiedReplyContent.trim(),
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(data.message || "统一回复成功")
+        setShowUnifiedReply(false)
+        setUnifiedReplyContent("")
+        setSelectedIds(new Set())
+        await fetchComments()
+      } else {
+        toast.error(data.message || "统一回复失败")
+      }
+    } catch {
+      toast.error("统一回复失败")
+    } finally {
+      setUnifiedReplyLoading(false)
+    }
+  }
+
+  // Quick reply using preset
+  const handlePresetReply = async (presetContent: string) => {
+    if (selectedIds.size === 0) {
+      toast.warning("请先选择要回复的留言")
+      return
+    }
+    setUnifiedReplyLoading(true)
+    try {
+      const res = await fetch("/api/admin/comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "unified_reply",
+          ids: [...selectedIds],
+          content: presetContent.trim(),
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(data.message || "预设回复成功")
+        setSelectedIds(new Set())
+        await fetchComments()
+      } else {
+        toast.error(data.message || "预设回复失败")
+      }
+    } catch {
+      toast.error("预设回复失败")
+    } finally {
+      setUnifiedReplyLoading(false)
     }
   }
 
@@ -283,7 +384,7 @@ export default function AdminPage() {
         }),
       })
       if (res.ok) {
-        toast.success("设置已保存")
+        toast.success("设置已保存，可手动刷新查看最新内容")
         await fetchAdminData()
       } else {
         toast.error("保存失败")
@@ -293,7 +394,7 @@ export default function AdminPage() {
     }
   }
 
-  // Password change
+  // Password change — use PUT
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!oldPwd.trim() || !newPwd.trim()) {
@@ -311,7 +412,7 @@ export default function AdminPage() {
     setPwdLoading(true)
     try {
       const res = await fetch("/api/admin", {
-        method: "POST",
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password: oldPwd, newPassword: newPwd }),
       })
@@ -329,6 +430,60 @@ export default function AdminPage() {
     } finally {
       setPwdLoading(false)
     }
+  }
+
+  // Footer save
+  const saveFooter = async () => {
+    setFooterLoading(true)
+    try {
+      const res = await fetch("/api/admin/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ footerHtml }),
+      })
+      if (res.ok) {
+        toast.success("页脚已保存，可手动刷新查看最新内容")
+        await fetchAdminData()
+      } else {
+        toast.error("页脚保存失败")
+      }
+    } catch {
+      toast.error("页脚保存失败")
+    } finally {
+      setFooterLoading(false)
+    }
+  }
+
+  // Presets save
+  const savePresets = async () => {
+    setPresetLoading(true)
+    try {
+      const res = await fetch("/api/admin/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ replyPresets }),
+      })
+      if (res.ok) {
+        toast.success("预设回复已保存")
+        await fetchAdminData()
+      } else {
+        toast.error("保存预设失败")
+      }
+    } catch {
+      toast.error("保存预设失败")
+    } finally {
+      setPresetLoading(false)
+    }
+  }
+
+  const addPreset = () => {
+    if (!newPreset.trim()) return
+    setReplyPresets([...replyPresets, newPreset.trim()])
+    setNewPreset("")
+  }
+
+  const removePreset = (index: number) => {
+    setReplyPresets(replyPresets.filter((_, i) => i !== index))
   }
 
   // Data export/import
@@ -358,15 +513,14 @@ export default function AdminPage() {
     try {
       const text = await file.text()
       const data = JSON.parse(text)
-      const formData = new FormData()
-      formData.append("file", file)
       const res = await fetch("/api/admin/data", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
       })
       const result = await res.json()
       if (res.ok) {
-        toast.success(result.message || "导入成功")
+        toast.success(result.message || "导入成功，可手动刷新查看最新内容")
         await Promise.all([fetchComments(), fetchAdminData()])
       } else {
         toast.error(result.message || "导入失败")
@@ -480,13 +634,22 @@ export default function AdminPage() {
             </div>
             <h1 className="text-base font-semibold tracking-tight">后台管理</h1>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-stone-600 hover:bg-stone-100 transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-            退出
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={handleRefresh}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-stone-600 hover:bg-stone-100 transition-colors"
+              title="刷新数据"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-stone-600 hover:bg-stone-100 transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              退出
+            </button>
+          </div>
         </div>
       </header>
 
@@ -539,6 +702,29 @@ export default function AdminPage() {
                 </div>
               )
             })()}
+
+            {/* Preset replies quick bar */}
+            {replyPresets.length > 0 && (
+              <div className="mb-4 p-3 bg-white rounded-lg border border-stone-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <Reply className="h-4 w-4 text-emerald-600" />
+                  <span className="text-xs font-medium text-stone-700">快捷预设回复</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {replyPresets.map((preset, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handlePresetReply(preset)}
+                      disabled={selectedIds.size === 0 || unifiedReplyLoading}
+                      className="px-2.5 py-1 rounded-full text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed border border-emerald-200"
+                    >
+                      {preset.length > 20 ? preset.slice(0, 20) + "..." : preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Batch actions */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2 flex-wrap">
@@ -547,6 +733,12 @@ export default function AdminPage() {
                 </span>
                 {selectedIds.size > 0 && (
                   <>
+                    <button
+                      onClick={() => { setShowUnifiedReply(true); setUnifiedReplyContent("") }}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded text-xs text-emerald-700 hover:bg-emerald-50 transition-colors font-medium"
+                    >
+                      <Reply className="h-3 w-3" /> 统一回复
+                    </button>
                     <button onClick={() => batchAction("batch_delete", [...selectedIds])} className="flex items-center gap-1 px-2.5 py-1 rounded text-xs text-red-600 hover:bg-red-50 transition-colors">
                       <Trash2 className="h-3 w-3" /> 批量删除
                     </button>
@@ -572,6 +764,66 @@ export default function AdminPage() {
                 {selectedIds.size === comments.length && comments.length > 0 ? "取消全选" : "全选"}
               </button>
             </div>
+
+            {/* Unified reply dialog */}
+            {showUnifiedReply && (
+              <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4" onClick={() => setShowUnifiedReply(false)}>
+                <div className="bg-white rounded-xl shadow-xl border border-stone-200 w-full max-w-lg" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
+                    <div className="flex items-center gap-2">
+                      <Reply className="h-5 w-5 text-emerald-600" />
+                      <h3 className="font-medium text-sm text-stone-900">统一回复 ({selectedIds.size} 条留言)</h3>
+                    </div>
+                    <button onClick={() => setShowUnifiedReply(false)} className="text-stone-400 hover:text-stone-600">
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <div className="p-5 space-y-4">
+                    <textarea
+                      value={unifiedReplyContent}
+                      onChange={e => setUnifiedReplyContent(e.target.value)}
+                      placeholder="输入统一回复内容（支持 Markdown）..."
+                      rows={4}
+                      className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm resize-y"
+                      autoFocus
+                    />
+                    {/* Quick preset insert */}
+                    {replyPresets.length > 0 && (
+                      <div>
+                        <span className="text-xs text-stone-500 mb-1.5 block">快速插入预设:</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {replyPresets.map((preset, i) => (
+                            <button
+                              key={i}
+                              onClick={() => setUnifiedReplyContent(preset)}
+                              className="px-2.5 py-1 rounded text-xs bg-stone-100 text-stone-700 hover:bg-stone-200 transition-colors"
+                            >
+                              {preset.length > 15 ? preset.slice(0, 15) + "..." : preset}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setShowUnifiedReply(false)}
+                        className="px-4 py-2 rounded-lg text-sm text-stone-600 hover:bg-stone-100 transition-colors"
+                      >
+                        取消
+                      </button>
+                      <button
+                        onClick={handleUnifiedReply}
+                        disabled={unifiedReplyLoading || !unifiedReplyContent.trim()}
+                        className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {unifiedReplyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Reply className="h-4 w-4" />}
+                        发送回复
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Comments list */}
             {dataLoading ? (
@@ -646,9 +898,9 @@ export default function AdminPage() {
                           <div className="mt-3 pl-4 border-l-2 border-stone-100 space-y-2">
                             {c.replies.map(r => (
                               <div key={r.id} className="flex items-start gap-2">
-                                <span className="text-xs font-medium text-stone-600">{r.author.name}:</span>
+                                <span className="text-xs font-medium text-stone-600 shrink-0">{r.author.name}:</span>
                                 <span className="text-xs text-stone-500 flex-1">{r.content}</span>
-                                <button onClick={() => deleteComment(r.id)} className="text-red-400 hover:text-red-600">
+                                <button onClick={() => deleteComment(r.id)} className="text-red-400 hover:text-red-600 shrink-0">
                                   <Trash2 className="h-3 w-3" />
                                 </button>
                               </div>
@@ -820,6 +1072,89 @@ export default function AdminPage() {
                 保存设置
               </button>
             </div>
+
+            {/* Footer editor */}
+            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4">
+              <div>
+                <h3 className="font-medium text-sm text-stone-900 mb-1 flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-emerald-600" />
+                  页脚自定义
+                </h3>
+                <p className="text-xs text-stone-500">自定义前台和后台页脚内容，支持 HTML</p>
+              </div>
+              <textarea
+                value={footerHtml}
+                onChange={e => setFooterHtml(e.target.value)}
+                placeholder={`<p class="text-xs text-stone-400">Powered by <span class="font-medium">Yuamli</span> v1.0.5</p>`}
+                rows={3}
+                className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm font-mono"
+              />
+              <p className="text-xs text-stone-400">
+                留空则显示默认页脚。修改后同时影响前台留言页和后台管理页。
+              </p>
+              <button
+                onClick={saveFooter}
+                disabled={footerLoading}
+                className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {footerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                保存页脚
+              </button>
+            </div>
+
+            {/* Reply presets */}
+            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4">
+              <div>
+                <h3 className="font-medium text-sm text-stone-900 mb-1 flex items-center gap-2">
+                  <Reply className="h-5 w-5 text-emerald-600" />
+                  预设回复模板
+                </h3>
+                <p className="text-xs text-stone-500">在留言管理中快速使用预设内容回复，如 &quot;这里不是无人区!&quot;</p>
+              </div>
+
+              <div className="space-y-2">
+                {replyPresets.length > 0 && replyPresets.map((preset, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="flex-1 px-3 py-1.5 rounded-lg border border-stone-200 text-sm text-stone-700 bg-stone-50">
+                      {preset}
+                    </span>
+                    <button
+                      onClick={() => removePreset(i)}
+                      className="text-stone-400 hover:text-red-500 transition-colors p-1"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newPreset}
+                  onChange={e => setNewPreset(e.target.value)}
+                  placeholder="输入新的预设回复内容"
+                  className="flex-1 px-3 py-1.5 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm"
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addPreset() } }}
+                />
+                <button
+                  onClick={addPreset}
+                  disabled={!newPreset.trim()}
+                  className="px-3 py-1.5 rounded-lg bg-stone-100 text-stone-700 text-sm hover:bg-stone-200 transition-colors disabled:opacity-40 flex items-center gap-1"
+                >
+                  <Plus className="h-3.5 w-3.5" /> 添加
+                </button>
+              </div>
+
+              <button
+                onClick={savePresets}
+                disabled={presetLoading}
+                className="px-4 py-2 rounded-lg bg-stone-800 text-white text-sm font-medium hover:bg-stone-900 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {presetLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                保存预设
+              </button>
+            </div>
           </div>
         )}
 
@@ -864,10 +1199,14 @@ export default function AdminPage() {
           </div>
         )}
       </main>
-      {/* 后台页脚*/}
+      {/* Footer — uses config or default */}
       <footer className="border-t bg-white/60 backdrop-blur-sm">
         <div className="max-w-3xl mx-auto px-4 py-4 text-center">
-          <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.0.5</p>
+          {config?.footerHtml ? (
+            <div dangerouslySetInnerHTML={{ __html: config.footerHtml }} />
+          ) : (
+            <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.0.5</p>
+          )}
         </div>
       </footer>
     </div>

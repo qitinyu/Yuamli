@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save settings
-    const { email, enabled, template, smtpHost, smtpPort, smtpUser, smtpPass } = body;
+    const { email, enabled, template, smtpHost, smtpPort, smtpUser, smtpPass, footerHtml, replyPresets } = body;
     const updates: Record<string, unknown> = {};
     if (email !== undefined) updates.adminEmail = email;
     if (enabled !== undefined && typeof enabled === "boolean") updates.notifyEnabled = enabled;
@@ -65,6 +65,8 @@ export async function POST(request: NextRequest) {
     if (smtpPort !== undefined) updates.smtpPort = Number(smtpPort);
     if (smtpUser !== undefined) updates.smtpUser = smtpUser;
     if (smtpPass !== undefined && smtpPass) updates.smtpPass = smtpPass;
+    if (footerHtml !== undefined) updates.footerHtml = footerHtml;
+    if (replyPresets !== undefined && Array.isArray(replyPresets)) updates.replyPresets = replyPresets;
 
     const newConfig = await updateConfig(updates as any);
 

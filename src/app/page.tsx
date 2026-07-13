@@ -1,18 +1,19 @@
 'use client'
 
-import { Suspense, useEffect, useCallback, useMemo } from "react"
+import { Suspense, useEffect, useCallback, useMemo, useState } from "react"
 import { useCommentStore } from "@/store/use-comment-store"
 import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import CommentList from "@/components/comment-system/CommentList"
 import CommentForm from "@/components/comment-system/CommentForm"
 import AuthModal from "@/components/comment-system/AuthModal"
-import { Loader2 } from "lucide-react"
+import { Loader2, RefreshCw } from "lucide-react"
 
 function CommentPage() {
-  const { setUser } = useCommentStore()
+  const { setUser, setComments, setLoading, incrementRefresh } = useCommentStore()
   const searchParams = useSearchParams()
   const pageId = searchParams.get("pageId") || ""
+  const [footerHtml, setFooterHtml] = useState<string | null>(null)
 
   const fetchSession = useCallback(async (): Promise<boolean> => {
     try {
@@ -23,7 +24,27 @@ function CommentPage() {
     } catch { return false }
   }, [setUser])
 
-  useEffect(() => { fetchSession() }, [fetchSession])
+  // Fetch public config (footer)
+  const fetchConfig = useCallback(async () => {
+    try {
+      const res = await fetch("/api/config")
+      if (res.ok) {
+        const data = await res.json()
+        if (data.footerHtml) setFooterHtml(data.footerHtml)
+      }
+    } catch { /* ignore */ }
+  }, [])
+
+  // Manual refresh
+  const handleRefresh = useCallback(() => {
+    incrementRefresh()
+    toast.success("已刷新")
+  }, [incrementRefresh])
+
+  useEffect(() => {
+    fetchSession()
+    fetchConfig()
+  }, [fetchSession, fetchConfig])
 
   // Listen for BroadcastChannel (popup OAuth result)
   useEffect(() => {
@@ -63,7 +84,7 @@ function CommentPage() {
       <main className="flex-1 w-full px-4 py-4">
         <div className={pageId ? "" : "max-w-2xl mx-auto"}>
           <section className="mb-6">
-            <CommentForm onSubmitted={() => {}} pageId={stablePageId} />
+            <CommentForm onSubmitted={() => {}} pageId={stablePageId} onRefresh={handleRefresh} />
           </section>
           <section>
             <CommentList pageId={stablePageId} />
@@ -73,7 +94,11 @@ function CommentPage() {
       {!pageId && (
         <footer className="border-t bg-white/60 backdrop-blur-sm">
           <div className="max-w-2xl mx-auto px-4 py-3 text-center">
-            <p className="text-xs text-muted-foreground">Powered by <span className="font-medium text-foreground">Yuamli</span> v1.0.5</p>
+            {footerHtml ? (
+              <div dangerouslySetInnerHTML={{ __html: footerHtml }} />
+            ) : (
+              <p className="text-xs text-muted-foreground">Powered by <span className="font-medium text-foreground">Yuamli</span> v1.0.5</p>
+            )}
           </div>
         </footer>
       )}

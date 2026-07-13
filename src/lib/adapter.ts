@@ -25,6 +25,8 @@ const DEFAULT_CONFIG = {
   smtpPort: 465,
   smtpUser: "",
   smtpPass: "",
+  footerHtml: "",
+  replyPresets: [] as string[],
 };
 
 // ==================== Vercel KV (Upstash Redis REST API) ====================

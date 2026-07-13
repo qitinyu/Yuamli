@@ -6,13 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useCommentStore } from "@/store/use-comment-store"
 import { toast } from "sonner"
-import ReactMarkdown from "react-markdown"
-import { Eye, EyeOff, Send, X, Bold, Italic, Link, List, LogOut, User } from "lucide-react"
+import { Eye, EyeOff, Send, X, Bold, Italic, Link, List, LogOut, User, RefreshCw } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import MarkdownRenderer from "./MarkdownRenderer"
 
 interface CommentFormProps {
   parentId?: string
@@ -20,6 +20,7 @@ interface CommentFormProps {
   onSubmitted?: () => void
   autoFocus?: boolean
   pageId?: string
+  onRefresh?: () => void
 }
 
 export default function CommentForm({
@@ -28,6 +29,7 @@ export default function CommentForm({
   onSubmitted,
   autoFocus = false,
   pageId = "",
+  onRefresh,
 }: CommentFormProps) {
   const { user, setUser, setShowAuthModal, setReplyingTo, incrementRefresh } = useCommentStore()
   const [content, setContent] = useState("")
@@ -139,13 +141,7 @@ export default function CommentForm({
           rows={3}
         />
       ) : (
-        <div className="min-h-[100px] rounded-md border bg-background p-3 text-sm leading-relaxed prose prose-sm max-w-none prose-zinc dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-pre:bg-muted prose-pre:p-2 prose-code:text-xs prose-a:text-emerald-600 dark:prose-a:text-emerald-400">
-          {content ? (
-            <ReactMarkdown>{content}</ReactMarkdown>
-          ) : (
-            <span className="text-muted-foreground">暂无内容可预览</span>
-          )}
-        </div>
+        <MarkdownRenderer content={content} className="min-h-[100px] rounded-md border bg-background p-3 text-sm leading-relaxed" emptyText="暂无内容可预览" />
       )}
 
       <div className="flex items-center justify-between">
@@ -190,6 +186,14 @@ export default function CommentForm({
               </Button>
             </TooltipTrigger>
             <TooltipContent>{showPreview ? "编辑" : "预览"}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRefresh} type="button">
+                <RefreshCw className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>刷新留言</TooltipContent>
           </Tooltip>
         </div>
 

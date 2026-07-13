@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Yuamli - 轻量留言系统",
-  description: "Yuamli V-1.0.4.1 多页面留言系统，支持 GitHub 登录、Markdown 语法、邮件通知、后台管理",
+  description: "Yuamli V-1.0.5 多页面留言系统，支持 GitHub 登录、Markdown 语法、邮件通知、后台管理",
   keywords: ["Yuamli", "comment system", "guestbook", "留言系统"],
   authors: [{ name: "Yuamli" }],
   icons: {

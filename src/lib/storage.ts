@@ -38,6 +38,12 @@ export interface SiteConfig {
   notifyEnabled: boolean;
   notifyTemplate: string;
   siteName: string;
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  smtpPass?: string;
+  footerHtml?: string;
+  replyPresets?: string[];
 }
 
 // ==================== Comments ====================

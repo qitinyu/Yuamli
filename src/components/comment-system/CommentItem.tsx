@@ -3,7 +3,6 @@
 import { useState } from "react"
 import { useCommentStore } from "@/store/use-comment-store"
 import { toast } from "sonner"
-import ReactMarkdown from "react-markdown"
 import { formatDistanceToNow } from "date-fns"
 import { zhCN } from "date-fns/locale"
 import {
@@ -30,6 +29,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Pencil, Check, X } from "lucide-react"
 import CommentForm from "./CommentForm"
+import MarkdownRenderer from "./MarkdownRenderer"
 import type { Comment } from "@/store/use-comment-store"
 
 interface CommentItemProps {
@@ -216,9 +216,7 @@ export default function CommentItem({
               </div>
             </div>
           ) : (
-            <div className="mt-1.5 text-sm leading-relaxed prose prose-sm max-w-none prose-zinc dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-pre:bg-muted prose-pre:p-2 prose-code:text-xs prose-a:text-emerald-600 dark:prose-a:text-emerald-400">
-              <ReactMarkdown>{comment.content}</ReactMarkdown>
-            </div>
+            <MarkdownRenderer content={comment.content} className="mt-1.5 text-sm leading-relaxed" />
           )}
 
           {/* Actions */}
