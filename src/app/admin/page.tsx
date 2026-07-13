@@ -70,16 +70,7 @@ interface SiteConfig {
   replyPresets?: string[]
 }
 
-interface ChangelogEntry {
-  id: string
-  version: string
-  date: string
-  type: "feature" | "fix" | "improvement" | "other"
-  content: string
-  createdAt: string
-}
-
-type Tab = "comments" | "users" | "settings" | "data" | "changelog"
+type Tab = "comments" | "users" | "settings" | "data"
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false)
@@ -129,16 +120,6 @@ export default function AdminPage() {
   const [newPreset, setNewPreset] = useState("")
   const [presetLoading, setPresetLoading] = useState(false)
 
-  // Changelog
-  const [changelog, setChangelog] = useState<ChangelogEntry[]>([])
-  const [showChangelogForm, setShowChangelogForm] = useState(false)
-  const [editingChangelog, setEditingChangelog] = useState<ChangelogEntry | null>(null)
-  const [changelogVersion, setChangelogVersion] = useState("")
-  const [changelogDate, setChangelogDate] = useState(new Date().toISOString().slice(0, 10))
-  const [changelogType, setChangelogType] = useState<ChangelogEntry["type"]>("feature")
-  const [changelogContent, setChangelogContent] = useState("")
-  const [changelogSaving, setChangelogSaving] = useState(false)
-
   const inited = useRef(false)
 
   // Check existing session
@@ -162,7 +143,7 @@ export default function AdminPage() {
           setNotifyTemplate(data.config?.notifyTemplate || "")
           setFooterHtml(data.config?.footerHtml || "")
           setReplyPresets(data.config?.replyPresets || [])
-          await Promise.all([fetchComments(), fetchChangelog()])
+          await fetchComments()
         }
       }
     } catch {
@@ -187,7 +168,7 @@ export default function AdminPage() {
         setAuthed(true)
         setPassword("")
         toast.success("登录成功")
-        await Promise.all([fetchComments(), fetchAdminData(), fetchChangelog()])
+        await Promise.all([fetchComments(), fetchAdminData()])
       } else {
         toast.error(data.message || "密码错误")
       }
@@ -214,7 +195,7 @@ export default function AdminPage() {
 
   // Refresh all data
   const handleRefresh = async () => {
-    await Promise.all([fetchComments(), fetchAdminData(), fetchChangelog()])
+    await Promise.all([fetchComments(), fetchAdminData()])
     toast.success("已刷新")
   }
 
@@ -588,92 +569,6 @@ export default function AdminPage() {
     }
   }
 
-  // Changelog
-  const fetchChangelog = async () => {
-    try {
-      const res = await fetch("/api/admin/changelog")
-      if (res.ok) {
-        const data = await res.json()
-        setChangelog(data.entries || [])
-      }
-    } catch {
-      toast.error("获取更新日志失败")
-    }
-  }
-
-  const resetChangelogForm = () => {
-    setEditingChangelog(null)
-    setChangelogVersion("")
-    setChangelogDate(new Date().toISOString().slice(0, 10))
-    setChangelogType("feature")
-    setChangelogContent("")
-    setShowChangelogForm(false)
-  }
-
-  const handleEditChangelog = (entry: ChangelogEntry) => {
-    setEditingChangelog(entry)
-    setChangelogVersion(entry.version)
-    setChangelogDate(entry.date)
-    setChangelogType(entry.type)
-    setChangelogContent(entry.content)
-    setShowChangelogForm(true)
-  }
-
-  const handleSaveChangelog = async () => {
-    if (!changelogVersion.trim() || !changelogContent.trim()) {
-      toast.warning("请填写版本号和内容")
-      return
-    }
-    setChangelogSaving(true)
-    try {
-      const entry = {
-        id: editingChangelog?.id || crypto.randomUUID(),
-        version: changelogVersion.trim(),
-        date: changelogDate,
-        type: changelogType,
-        content: changelogContent.trim(),
-        createdAt: editingChangelog?.createdAt || new Date().toISOString(),
-      }
-      const action = editingChangelog ? "update" : "add"
-      const res = await fetch("/api/admin/changelog", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, entry }),
-      })
-      if (res.ok) {
-        toast.success(editingChangelog ? "已更新" : "已添加")
-        resetChangelogForm()
-        await fetchChangelog()
-      } else {
-        const data = await res.json()
-        toast.error(data.message || "操作失败")
-      }
-    } catch {
-      toast.error("操作失败")
-    } finally {
-      setChangelogSaving(false)
-    }
-  }
-
-  const handleDeleteChangelog = async (id: string) => {
-    if (!confirm("确定删除此更新日志？")) return
-    try {
-      const res = await fetch("/api/admin/changelog", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete", entry: { id } }),
-      })
-      if (res.ok) {
-        toast.success("已删除")
-        await fetchChangelog()
-      } else {
-        toast.error("删除失败")
-      }
-    } catch {
-      toast.error("删除失败")
-    }
-  }
-
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev)
@@ -805,7 +700,6 @@ export default function AdminPage() {
             { key: "users", label: "用户列表", icon: Users },
             { key: "settings", label: "设置", icon: Settings },
             { key: "data", label: "数据备份", icon: Download },
-            { key: "changelog", label: "更新日志", icon: FileText },
           ] as { key: Tab; label: string; icon: any }[]).map(tab => (
             <button
               key={tab.key}
@@ -1408,164 +1302,6 @@ export default function AdminPage() {
                 <input type="file" accept=".json" onChange={handleImport} className="hidden" />
               </label>
             </div>
-          </div>
-        )}
-
-        {/* Changelog tab */}
-        {activeTab === "changelog" && (
-          <div className="max-w-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-stone-900">更新日志</h3>
-              {!showChangelogForm && (
-                <button
-                  onClick={() => setShowChangelogForm(true)}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors flex items-center gap-1.5"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  添加条目
-                </button>
-              )}
-            </div>
-
-            {showChangelogForm && (
-              <div className="bg-white rounded-lg border border-stone-200 p-4 space-y-3">
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-stone-600 mb-1">版本号</label>
-                    <input
-                      value={changelogVersion}
-                      onChange={e => setChangelogVersion(e.target.value)}
-                      placeholder="如 v1.1.0"
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-stone-600 mb-1">日期</label>
-                    <input
-                      type="date"
-                      value={changelogDate}
-                      onChange={e => setChangelogDate(e.target.value)}
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-stone-600 mb-1">类型</label>
-                    <select
-                      value={changelogType}
-                      onChange={e => setChangelogType(e.target.value as ChangelogEntry["type"])}
-                      className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none"
-                    >
-                      <option value="feature">新功能</option>
-                      <option value="fix">修复</option>
-                      <option value="improvement">优化</option>
-                      <option value="other">其他</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-stone-600 mb-1">内容（支持 Markdown）</label>
-                  <textarea
-                    value={changelogContent}
-                    onChange={e => setChangelogContent(e.target.value)}
-                    placeholder="输入更新内容，支持 Markdown 格式..."
-                    rows={4}
-                    className="w-full px-2.5 py-1.5 rounded-lg border border-stone-300 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none resize-y font-mono"
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleSaveChangelog}
-                    disabled={changelogSaving}
-                    className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors flex items-center gap-1.5 disabled:opacity-50"
-                  >
-                    {changelogSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                    {editingChangelog ? "更新" : "添加"}
-                  </button>
-                  <button
-                    onClick={resetChangelogForm}
-                    className="px-3 py-1.5 rounded-lg border border-stone-300 text-stone-600 text-xs font-medium hover:bg-stone-50 transition-colors"
-                  >
-                    取消
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {changelog.length === 0 ? (
-              <div className="bg-white rounded-lg border border-stone-200 p-8 text-center">
-                <FileText className="h-8 w-8 text-stone-300 mx-auto mb-2" />
-                <p className="text-sm text-stone-400">暂无更新日志</p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg border border-stone-200 overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-stone-200 bg-stone-50">
-                      <th className="text-left px-3 py-2 text-xs font-medium text-stone-500">版本</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-stone-500">日期</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-stone-500">类型</th>
-                      <th className="text-left px-3 py-2 text-xs font-medium text-stone-500">内容</th>
-                      <th className="text-right px-3 py-2 text-xs font-medium text-stone-500">操作</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-stone-100">
-                    {changelog.map(entry => (
-                      <tr key={entry.id} className="hover:bg-stone-50/50">
-                        <td className="px-3 py-2.5">
-                          <span className="font-mono text-xs font-semibold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                            {entry.version}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 text-xs text-stone-500 whitespace-nowrap">{entry.date}</td>
-                        <td className="px-3 py-2.5">
-                          <span className={`text-xs px-1.5 py-0.5 rounded ${
-                            entry.type === "feature" ? "bg-blue-50 text-blue-700" :
-                            entry.type === "fix" ? "bg-red-50 text-red-700" :
-                            entry.type === "improvement" ? "bg-amber-50 text-amber-700" :
-                            "bg-stone-50 text-stone-600"
-                          }`}>
-                            {entry.type === "feature" ? "新功能" :
-                             entry.type === "fix" ? "修复" :
-                             entry.type === "improvement" ? "优化" : "其他"}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 text-xs text-stone-700 leading-relaxed whitespace-pre-wrap">
-                          {entry.content.split('\n').map((line, i) => {
-                            if (line.startsWith('- ')) {
-                              return <div key={i} className="flex items-start gap-1.5"><span className="text-stone-400 mt-0.5">•</span><span>{line.slice(2)}</span></div>
-                            }
-                            if (line.match(/^#+\s/)) {
-                              const level = line.match(/^(#+)\s/)?.[1].length || 0
-                              return <div key={i} className={`font-semibold text-stone-800 ${level <= 2 ? 'text-sm mt-2 mb-1' : 'text-xs mt-1 mb-0.5'}`}>{line.replace(/^#+\s/, '')}</div>
-                            }
-                            if (line.trim() === '') return <div key={i} className="h-1" />
-                            return <div key={i}>{line}</div>
-                          })}
-                        </td>
-                        <td className="px-3 py-2.5 text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button
-                              onClick={() => handleEditChangelog(entry)}
-                              className="p-1 rounded hover:bg-stone-100 text-stone-400 hover:text-stone-600 transition-colors"
-                              title="编辑"
-                            >
-                              <FileText className="h-3.5 w-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteChangelog(entry.id)}
-                              className="p-1 rounded hover:bg-red-50 text-stone-400 hover:text-red-600 transition-colors"
-                              title="删除"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
         )}
       </main>
