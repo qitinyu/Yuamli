@@ -70,7 +70,7 @@ interface SiteConfig {
   replyPresets?: string[]
 }
 
-type Tab = "comments" | "users" | "settings" | "data"
+type Tab = "comments" | "users" | "settings" | "data" | "changelog"
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false)
@@ -700,6 +700,7 @@ export default function AdminPage() {
             { key: "users", label: "用户列表", icon: Users },
             { key: "settings", label: "设置", icon: Settings },
             { key: "data", label: "数据备份", icon: Download },
+            { key: "changelog", label: "更新日志", icon: FileText },
           ] as { key: Tab; label: string; icon: any }[]).map(tab => (
             <button
               key={tab.key}
@@ -1304,6 +1305,51 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+        {activeTab === "changelog" && (
+          <div className="max-w-3xl">
+            <div className="bg-white rounded-lg border border-stone-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-stone-50 border-b border-stone-200">
+                    <th className="text-left px-4 py-3 font-medium text-stone-600 w-28">版本</th>
+                    <th className="text-left px-4 py-3 font-medium text-stone-600">更新内容</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  <tr>
+                    <td className="px-4 py-3 font-mono text-xs text-emerald-700 bg-emerald-50/50 font-medium">v1.0.6</td>
+                    <td className="px-4 py-3 text-stone-700">后台评论新增单条「回复」按钮，可直接在后台回复零散留言</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-mono text-xs text-stone-500">v1.0.5</td>
+                    <td className="px-4 py-3 text-stone-600">独立 Footer 编辑、统一回复留言、评论区预设文本、Markdown 渲染优化、热刷新按钮、密码错误提示</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-mono text-xs text-stone-500">v1.0.4</td>
+                    <td className="px-4 py-3 text-stone-600">后台管理界面优化、邮件通知模板、数据导入导出</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-mono text-xs text-stone-500">v1.0.3</td>
+                    <td className="px-4 py-3 text-stone-600">GitHub OAuth 登录、访客注册、留言置顶/精华、批量管理</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-mono text-xs text-stone-500">v1.0.2</td>
+                    <td className="px-4 py-3 text-stone-600">嵌套评论回复、评论树结构、用户头像显示</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-mono text-xs text-stone-500">v1.0.1</td>
+                    <td className="px-4 py-3 text-stone-600">基础留言板功能、Vercel KV / 本地存储双模式</td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-3 font-mono text-xs text-stone-500">v1.0.0</td>
+                    <td className="px-4 py-3 text-stone-600">项目初始化、Next.js + Tailwind CSS + shadcn/ui 搭建</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </main>
       {/* Footer — uses config or default */}
       <footer className="border-t bg-white/60 backdrop-blur-sm">
@@ -1311,7 +1357,7 @@ export default function AdminPage() {
           {config?.footerHtml ? (
             <div dangerouslySetInnerHTML={{ __html: config.footerHtml }} />
           ) : (
-            <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.0.5</p>
+            <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.0.6</p>
           )}
         </div>
       </footer>
