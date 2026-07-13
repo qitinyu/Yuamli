@@ -73,6 +73,48 @@ export async function POST(request: NextRequest) {
         const count = await batchUpdateComments(ids, { isFeatured: false });
         return NextResponse.json({ ok: true, message: `已取消精华 ${count} 条留言` });
       }
+      case "reply": {
+        const { content, parentId } = body;
+        if (!content || typeof content !== "string" || content.trim().length === 0) {
+          return NextResponse.json(
+            { ok: false, message: "回复内容不能为空" },
+            { status: 400 }
+          );
+        }
+        if (!parentId || typeof parentId !== "string") {
+          return NextResponse.json(
+            { ok: false, message: "缺少目标留言ID" },
+            { status: 400 }
+          );
+        }
+        const allComments = await getComments();
+        const parent = allComments.find((c) => c.id === parentId);
+        if (!parent) {
+          return NextResponse.json(
+            { ok: false, message: "目标留言不存在" },
+            { status: 404 }
+          );
+        }
+        const now = new Date().toISOString();
+        const saved = await addComment({
+          id: crypto.randomUUID(),
+          content: content.trim(),
+          author: {
+            id: "admin",
+            name: "管理员",
+            avatar: "",
+            type: "guest",
+          },
+          parentId: parentId,
+          replyTo: { id: parent.author.id, name: parent.author.name },
+          isPinned: false,
+          isFeatured: false,
+          pageId: parent.pageId || "",
+          createdAt: now,
+          updatedAt: now,
+        });
+        return NextResponse.json({ ok: true, message: "回复成功", comment: saved });
+      }
       case "unified_reply": {
         const { content } = body;
         if (!content || typeof content !== "string" || content.trim().length === 0) {

@@ -110,6 +110,11 @@ export default function AdminPage() {
   const [footerHtml, setFooterHtml] = useState("")
   const [footerLoading, setFooterLoading] = useState(false)
 
+  // Single reply dialog
+  const [replyTarget, setReplyTarget] = useState<Comment | null>(null)
+  const [replyContent, setReplyContent] = useState("")
+  const [replyLoading, setReplyLoading] = useState(false)
+
   // Reply presets
   const [replyPresets, setReplyPresets] = useState<string[]>([])
   const [newPreset, setNewPreset] = useState("")
@@ -368,6 +373,40 @@ export default function AdminPage() {
       }
     } catch {
       toast.error("操作失败")
+    }
+  }
+
+  // Single reply to a comment
+  const handleReply = async () => {
+    if (!replyTarget || !replyContent.trim()) {
+      toast.error("回复内容不能为空")
+      return
+    }
+    setReplyLoading(true)
+    try {
+      const res = await fetch("/api/admin/comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "reply",
+          ids: [replyTarget.id],
+          parentId: replyTarget.id,
+          content: replyContent.trim(),
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.ok) {
+        toast.success("回复成功")
+        setReplyTarget(null)
+        setReplyContent("")
+        await fetchComments()
+      } else {
+        toast.error(data.message || "回复失败")
+      }
+    } catch {
+      toast.error("回复失败")
+    } finally {
+      setReplyLoading(false)
     }
   }
 
@@ -825,6 +864,69 @@ export default function AdminPage() {
               </div>
             )}
 
+            {/* Single reply dialog */}
+            {replyTarget && (
+              <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4" onClick={() => setReplyTarget(null)}>
+                <div className="bg-white rounded-xl shadow-xl border border-stone-200 w-full max-w-lg" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
+                    <div className="flex items-center gap-2">
+                      <Reply className="h-5 w-5 text-emerald-600" />
+                      <h3 className="font-medium text-sm text-stone-900">回复 {replyTarget.author.name}</h3>
+                    </div>
+                    <button onClick={() => setReplyTarget(null)} className="text-stone-400 hover:text-stone-600">
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <div className="px-5 py-3 bg-stone-50 border-b border-stone-100">
+                    <p className="text-xs text-stone-400 line-clamp-2">{replyTarget.content}</p>
+                  </div>
+                  <div className="p-5 space-y-4">
+                    <textarea
+                      value={replyContent}
+                      onChange={e => setReplyContent(e.target.value)}
+                      placeholder="输入回复内容（支持 Markdown）..."
+                      rows={4}
+                      className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm resize-y"
+                      autoFocus
+                    />
+                    {/* Quick preset insert */}
+                    {replyPresets.length > 0 && (
+                      <div>
+                        <span className="text-xs text-stone-500 mb-1.5 block">快速插入预设:</span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {replyPresets.map((preset, i) => (
+                            <button
+                              key={i}
+                              onClick={() => setReplyContent(preset)}
+                              className="px-2.5 py-1 rounded text-xs bg-stone-100 text-stone-700 hover:bg-stone-200 transition-colors"
+                            >
+                              {preset.length > 15 ? preset.slice(0, 15) + "..." : preset}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setReplyTarget(null)}
+                        className="px-4 py-2 rounded-lg text-sm text-stone-600 hover:bg-stone-100 transition-colors"
+                      >
+                        取消
+                      </button>
+                      <button
+                        onClick={handleReply}
+                        disabled={replyLoading || !replyContent.trim()}
+                        className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {replyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Reply className="h-4 w-4" />}
+                        发送回复
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Comments list */}
             {dataLoading ? (
               <div className="flex items-center justify-center py-20">
@@ -888,6 +990,10 @@ export default function AdminPage() {
                           <button onClick={() => toggleFeature(c.id, c.isFeatured)} className="flex items-center gap-1 px-2 py-1 rounded text-xs text-stone-500 hover:bg-stone-100 transition-colors">
                             {c.isFeatured ? <StarOff className="h-3 w-3" /> : <Star className="h-3 w-3" />}
                             {c.isFeatured ? "取消精华" : "精华"}
+                          </button>
+                          <button onClick={() => { setReplyTarget(c); setReplyContent("") }} className="flex items-center gap-1 px-2 py-1 rounded text-xs text-stone-500 hover:bg-stone-100 transition-colors">
+                            <Reply className="h-3 w-3" />
+                            回复
                           </button>
                           <button onClick={() => deleteComment(c.id)} className="flex items-center gap-1 px-2 py-1 rounded text-xs text-red-500 hover:bg-red-50 transition-colors ml-auto">
                             <Trash2 className="h-3 w-3" /> 删除
