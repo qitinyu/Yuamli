@@ -226,7 +226,7 @@ export default function CommentForm({
               <User className="h-3.5 w-3.5" /> 登录
             </Button>
           )}
-          <Button size="sm" className="h-8 gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700" onClick={handleSubmit} disabled={submitting || !content.trim()}>
+          <Button size="sm" className="h-8 gap-1.5 bg-[#DF9193] text-white hover:bg-[#c97d80]" onClick={handleSubmit} disabled={submitting || !content.trim()}>
             <Send className="h-3.5 w-3.5" />
             {submitting ? "发送中..." : "发送"}
           </Button>
