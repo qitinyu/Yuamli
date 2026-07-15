@@ -44,6 +44,7 @@ export interface SiteConfig {
   smtpPass?: string;
   footerHtml?: string;
   replyPresets?: string[];
+  themePreset?: string;
 }
 
 // ==================== Comments ====================

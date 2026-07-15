@@ -46,6 +46,13 @@
 
 :root {
   --radius: 0.625rem;
+  /* Theme accent colors — defaults to emerald */
+  --theme-accent: #059669;
+  --theme-accent-hover: #047857;
+  --theme-accent-light: #d1fae5;
+  --theme-accent-text: #047857;
+  --theme-accent-50: #ecfdf5;
+  --theme-accent-border: #a7f3d0;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

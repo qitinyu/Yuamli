@@ -8,6 +8,7 @@ export async function GET() {
     return NextResponse.json({
       siteName: config.siteName,
       footerHtml: config.footerHtml || "",
+      replyPresets: config.replyPresets || [],
     });
   } catch {
     return NextResponse.json(

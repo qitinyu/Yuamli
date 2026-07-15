@@ -27,7 +27,9 @@ import {
   Plus,
   X,
   FileText,
+  Palette,
 } from "lucide-react"
+import { THEME_PRESETS, themeToStyle, type ThemePreset } from "@/lib/theme"
 
 interface CommentAuthor {
   id: string
@@ -68,6 +70,7 @@ interface SiteConfig {
   siteName: string
   footerHtml?: string
   replyPresets?: string[]
+  themePreset?: string
 }
 
 type Tab = "comments" | "users" | "settings" | "data" | "changelog"
@@ -115,10 +118,20 @@ export default function AdminPage() {
   const [replyContent, setReplyContent] = useState("")
   const [replyLoading, setReplyLoading] = useState(false)
 
+  // Changelog
+  const [changelog, setChangelog] = useState<{ version: string; content: string }[]>([])
+  const [changelogLoading, setChangelogLoading] = useState(false)
+  const [changelogSaving, setChangelogSaving] = useState(false)
+  const [newLogVersion, setNewLogVersion] = useState("")
+  const [newLogContent, setNewLogContent] = useState("")
+
   // Reply presets
   const [replyPresets, setReplyPresets] = useState<string[]>([])
   const [newPreset, setNewPreset] = useState("")
   const [presetLoading, setPresetLoading] = useState(false)
+
+  // Theme
+  const [themePreset, setThemePreset] = useState<string>("emerald")
 
   const inited = useRef(false)
 
@@ -143,6 +156,7 @@ export default function AdminPage() {
           setNotifyTemplate(data.config?.notifyTemplate || "")
           setFooterHtml(data.config?.footerHtml || "")
           setReplyPresets(data.config?.replyPresets || [])
+          setThemePreset(data.config?.themePreset || "emerald")
           await fetchComments()
         }
       }
@@ -227,6 +241,7 @@ export default function AdminPage() {
           setNotifyTemplate(data.config?.notifyTemplate || "")
           setFooterHtml(data.config?.footerHtml || "")
           setReplyPresets(data.config?.replyPresets || [])
+          setThemePreset(data.config?.themePreset || "emerald")
         }
       }
     } catch {
@@ -525,6 +540,76 @@ export default function AdminPage() {
     setReplyPresets(replyPresets.filter((_, i) => i !== index))
   }
 
+  // Theme
+  const activeThemeStyle = (() => {
+    if (themePreset === "emerald") return {}
+    const t = THEME_PRESETS.find(p => p.name === themePreset)
+    return t ? themeToStyle(t) : {}
+  })()
+
+  const handleThemeChange = async (name: string) => {
+    setThemePreset(name)
+    try {
+      await fetch("/api/admin/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ themePreset: name }),
+      })
+      toast.success("主题已切换，可手动刷新查看最新内容")
+    } catch {
+      toast.error("主题切换失败")
+    }
+  }
+
+  // Changelog operations
+  const fetchChangelog = async () => {
+    setChangelogLoading(true)
+    try {
+      const res = await fetch("/api/admin/changelog")
+      if (res.ok) {
+        const data = await res.json()
+        setChangelog(data.changelog || [])
+      }
+    } catch { /* ignore */ }
+    setChangelogLoading(false)
+  }
+
+  const saveChangelog = async () => {
+    setChangelogSaving(true)
+    try {
+      const res = await fetch("/api/admin/changelog", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ changelog }),
+      })
+      if (res.ok) {
+        toast.success("更新日志已保存")
+      } else {
+        toast.error("保存失败")
+      }
+    } catch {
+      toast.error("保存失败")
+    }
+    setChangelogSaving(false)
+  }
+
+  const addChangelog = () => {
+    if (!newLogVersion.trim() || !newLogContent.trim()) return
+    setChangelog([{ version: newLogVersion.trim(), content: newLogContent.trim() }, ...changelog])
+    setNewLogVersion("")
+    setNewLogContent("")
+  }
+
+  const removeChangelog = (index: number) => {
+    setChangelog(changelog.filter((_, i) => i !== index))
+  }
+
+  const updateChangelogItem = (index: number, field: "version" | "content", value: string) => {
+    const updated = [...changelog]
+    updated[index] = { ...updated[index], [field]: value }
+    setChangelog(updated)
+  }
+
   // Data export/import
   const handleExport = async () => {
     try {
@@ -612,7 +697,7 @@ export default function AdminPage() {
         <div className="w-full max-w-sm">
           <div className="bg-white rounded-2xl shadow-lg border border-stone-200 p-8">
             <div className="flex flex-col items-center mb-6">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-600 flex items-center justify-center mb-3">
+              <div className="w-14 h-14 rounded-2xl bg-[var(--theme-accent)] flex items-center justify-center mb-3">
                 <Shield className="h-7 w-7 text-white" />
               </div>
               <h1 className="text-xl font-bold text-stone-900">Yuamli 后台管理</h1>
@@ -626,7 +711,7 @@ export default function AdminPage() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder="管理密码"
-                  className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-sm"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none transition-all text-sm"
                   autoFocus
                 />
                 <button
@@ -640,7 +725,7 @@ export default function AdminPage() {
               <button
                 type="submit"
                 disabled={loginLoading || !password.trim()}
-                className="w-full py-2.5 rounded-lg bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-lg bg-[var(--theme-accent)] text-white font-medium text-sm hover:bg-[var(--theme-accent-hover)] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {loginLoading ? (
                   <>
@@ -663,27 +748,27 @@ export default function AdminPage() {
 
   // ===== Admin dashboard =====
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-stone-50 to-white">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-stone-50 to-white" style={activeThemeStyle as React.CSSProperties}>
       {/* Header */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
         <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-[var(--theme-accent)] flex items-center justify-center">
               <Shield className="h-4 w-4 text-white" />
             </div>
             <h1 className="text-base font-semibold tracking-tight">后台管理</h1>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 -mr-1">
             <button
               onClick={handleRefresh}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-stone-600 hover:bg-stone-100 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm text-stone-600 hover:bg-stone-100 transition-colors"
               title="刷新数据"
             >
               <RefreshCw className="h-4 w-4" />
             </button>
             <button
               onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-stone-600 hover:bg-stone-100 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm text-stone-600 hover:bg-stone-100 transition-colors"
             >
               <LogOut className="h-4 w-4" />
               退出
@@ -704,10 +789,10 @@ export default function AdminPage() {
           ] as { key: Tab; label: string; icon: any }[]).map(tab => (
             <button
               key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => { setActiveTab(tab.key); if (tab.key === "changelog") fetchChangelog() }}
               className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 activeTab === tab.key
-                  ? "border-emerald-600 text-emerald-700"
+                  ? "border-[var(--theme-accent)] text-[var(--theme-accent-text)]"
                   : "border-transparent text-stone-500 hover:text-stone-700"
               }`}
             >
@@ -732,7 +817,7 @@ export default function AdminPage() {
                   <span className="text-xs text-stone-500">页面筛选:</span>
                   <div className="relative">
                     <select value={pageIdFilter} onChange={e => setPageIdFilter(e.target.value)}
-                      className="appearance-none pl-3 pr-7 py-1.5 rounded-lg border border-stone-300 text-sm bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none cursor-pointer">
+                      className="appearance-none pl-3 pr-7 py-1.5 rounded-lg border border-stone-300 text-sm bg-white focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none cursor-pointer">
                       <option value="">全部页面</option>
                       <option value="__guestbook__">留言板（无 pageId）</option>
                       {allPageIds.map(pid => <option key={pid} value={pid}>{pid}</option>)}
@@ -747,7 +832,7 @@ export default function AdminPage() {
             {replyPresets.length > 0 && (
               <div className="mb-4 p-3 bg-white rounded-lg border border-stone-200">
                 <div className="flex items-center gap-2 mb-2">
-                  <Reply className="h-4 w-4 text-emerald-600" />
+                  <Reply className="h-4 w-4 text-[var(--theme-accent)]" />
                   <span className="text-xs font-medium text-stone-700">快捷预设回复</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -756,7 +841,7 @@ export default function AdminPage() {
                       key={i}
                       onClick={() => handlePresetReply(preset)}
                       disabled={selectedIds.size === 0 || unifiedReplyLoading}
-                      className="px-2.5 py-1 rounded-full text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed border border-emerald-200"
+                      className="px-2.5 py-1 rounded-full text-xs bg-[var(--theme-accent-50)] text-[var(--theme-accent-text)] hover:bg-[var(--theme-accent-light)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed border border-[var(--theme-accent-border)]"
                     >
                       {preset.length > 20 ? preset.slice(0, 20) + "..." : preset}
                     </button>
@@ -775,7 +860,7 @@ export default function AdminPage() {
                   <>
                     <button
                       onClick={() => { setShowUnifiedReply(true); setUnifiedReplyContent("") }}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded text-xs text-emerald-700 hover:bg-emerald-50 transition-colors font-medium"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded text-xs text-[var(--theme-accent-text)] hover:bg-[var(--theme-accent-50)] transition-colors font-medium"
                     >
                       <Reply className="h-3 w-3" /> 统一回复
                     </button>
@@ -811,7 +896,7 @@ export default function AdminPage() {
                 <div className="bg-white rounded-xl shadow-xl border border-stone-200 w-full max-w-lg" onClick={e => e.stopPropagation()}>
                   <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
                     <div className="flex items-center gap-2">
-                      <Reply className="h-5 w-5 text-emerald-600" />
+                      <Reply className="h-5 w-5 text-[var(--theme-accent)]" />
                       <h3 className="font-medium text-sm text-stone-900">统一回复 ({selectedIds.size} 条留言)</h3>
                     </div>
                     <button onClick={() => setShowUnifiedReply(false)} className="text-stone-400 hover:text-stone-600">
@@ -824,7 +909,7 @@ export default function AdminPage() {
                       onChange={e => setUnifiedReplyContent(e.target.value)}
                       placeholder="输入统一回复内容（支持 Markdown）..."
                       rows={4}
-                      className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm resize-y"
+                      className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm resize-y"
                       autoFocus
                     />
                     {/* Quick preset insert */}
@@ -854,7 +939,7 @@ export default function AdminPage() {
                       <button
                         onClick={handleUnifiedReply}
                         disabled={unifiedReplyLoading || !unifiedReplyContent.trim()}
-                        className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                        className="px-4 py-2 rounded-lg bg-[var(--theme-accent)] text-white text-sm font-medium hover:bg-[var(--theme-accent-hover)] transition-colors disabled:opacity-50 flex items-center gap-2"
                       >
                         {unifiedReplyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Reply className="h-4 w-4" />}
                         发送回复
@@ -871,7 +956,7 @@ export default function AdminPage() {
                 <div className="bg-white rounded-xl shadow-xl border border-stone-200 w-full max-w-lg" onClick={e => e.stopPropagation()}>
                   <div className="flex items-center justify-between px-5 py-4 border-b border-stone-100">
                     <div className="flex items-center gap-2">
-                      <Reply className="h-5 w-5 text-emerald-600" />
+                      <Reply className="h-5 w-5 text-[var(--theme-accent)]" />
                       <h3 className="font-medium text-sm text-stone-900">回复 {replyTarget.author.name}</h3>
                     </div>
                     <button onClick={() => setReplyTarget(null)} className="text-stone-400 hover:text-stone-600">
@@ -887,7 +972,7 @@ export default function AdminPage() {
                       onChange={e => setReplyContent(e.target.value)}
                       placeholder="输入回复内容（支持 Markdown）..."
                       rows={4}
-                      className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm resize-y"
+                      className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm resize-y"
                       autoFocus
                     />
                     {/* Quick preset insert */}
@@ -917,7 +1002,7 @@ export default function AdminPage() {
                       <button
                         onClick={handleReply}
                         disabled={replyLoading || !replyContent.trim()}
-                        className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                        className="px-4 py-2 rounded-lg bg-[var(--theme-accent)] text-white text-sm font-medium hover:bg-[var(--theme-accent-hover)] transition-colors disabled:opacity-50 flex items-center gap-2"
                       >
                         {replyLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Reply className="h-4 w-4" />}
                         发送回复
@@ -972,7 +1057,7 @@ export default function AdminPage() {
                             </span>
                           )}
                           {c.pageId && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 truncate max-w-[200px]" title={c.pageId}>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--theme-accent-50)] text-[var(--theme-accent-text)] truncate max-w-[200px]" title={c.pageId}>
                               {c.pageId}
                             </span>
                           )}
@@ -1064,10 +1149,38 @@ export default function AdminPage() {
         {/* Settings tab */}
         {activeTab === "settings" && (
           <div className="max-w-xl space-y-4">
+            {/* Theme color */}
+            <div className="bg-white rounded-lg border border-stone-200 p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Palette className="h-5 w-5 text-[var(--theme-accent)]" />
+                <h3 className="font-medium text-sm text-stone-900">主题色</h3>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleThemeChange("emerald")}
+                  className={`w-9 h-9 rounded-full border-2 transition-all ${themePreset === "emerald" ? "border-stone-800 scale-110" : "border-transparent hover:scale-105"}`}
+                  style={{ background: "#059669" }}
+                  title="默认绿"
+                />
+                {THEME_PRESETS.map(p => (
+                  <button
+                    key={p.name}
+                    onClick={() => handleThemeChange(p.name)}
+                    className={`w-9 h-9 rounded-full border-2 transition-all ${themePreset === p.name ? "border-stone-800 scale-110" : "border-transparent hover:scale-105"}`}
+                    style={{ background: p.color }}
+                    title={p.name}
+                  />
+                ))}
+                <span className="text-xs text-stone-400 ml-1">
+                  {themePreset === "emerald" ? "默认绿" : themePreset}
+                </span>
+              </div>
+            </div>
+
             {/* Password change */}
             <div className="bg-white rounded-lg border border-stone-200 p-6">
               <div className="flex items-center gap-2 mb-4">
-                <KeyRound className="h-5 w-5 text-emerald-600" />
+                <KeyRound className="h-5 w-5 text-[var(--theme-accent)]" />
                 <h3 className="font-medium text-sm text-stone-900">修改管理密码</h3>
               </div>
               <form onSubmit={handleChangePassword} className="space-y-3">
@@ -1078,7 +1191,7 @@ export default function AdminPage() {
                     value={oldPwd}
                     onChange={e => setOldPwd(e.target.value)}
                     placeholder="输入当前密码"
-                    className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm"
+                    className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
                     autoComplete="current-password"
                   />
                 </div>
@@ -1089,7 +1202,7 @@ export default function AdminPage() {
                     value={newPwd}
                     onChange={e => setNewPwd(e.target.value)}
                     placeholder="输入新密码（至少4位）"
-                    className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm"
+                    className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
                     autoComplete="new-password"
                   />
                 </div>
@@ -1100,14 +1213,14 @@ export default function AdminPage() {
                     value={confirmPwd}
                     onChange={e => setConfirmPwd(e.target.value)}
                     placeholder="再次输入新密码"
-                    className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm"
+                    className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
                     autoComplete="new-password"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={pwdLoading}
-                  className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                  className="px-4 py-2 rounded-lg bg-[var(--theme-accent)] text-white text-sm font-medium hover:bg-[var(--theme-accent-hover)] transition-colors disabled:opacity-50 flex items-center gap-2"
                 >
                   {pwdLoading ? (
                     <>
@@ -1142,7 +1255,7 @@ export default function AdminPage() {
                     value={notifyEmail}
                     onChange={e => setNotifyEmail(e.target.value)}
                     placeholder="admin@example.com"
-                    className="flex-1 max-w-xs px-3 py-1.5 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm"
+                    className="flex-1 max-w-xs px-3 py-1.5 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
                   />
                 </label>
               </div>
@@ -1152,7 +1265,7 @@ export default function AdminPage() {
                   <span className="text-sm text-stone-700">启用通知</span>
                   <button
                     onClick={() => setNotifyEnabled(!notifyEnabled)}
-                    className={`relative w-10 h-5 rounded-full transition-colors ${notifyEnabled ? "bg-emerald-600" : "bg-stone-300"}`}
+                    className={`relative w-10 h-5 rounded-full transition-colors ${notifyEnabled ? "bg-[var(--theme-accent)]" : "bg-stone-300"}`}
                   >
                     <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${notifyEnabled ? "translate-x-5" : ""}`} />
                   </button>
@@ -1165,7 +1278,7 @@ export default function AdminPage() {
                   value={notifyTemplate}
                   onChange={e => setNotifyTemplate(e.target.value)}
                   rows={4}
-                  className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm font-mono"
+                  className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm font-mono"
                 />
                 <p className="text-xs text-stone-400 mt-1">
                   可用变量: {"{author}"}, {"{content}"}, {"{time}"}
@@ -1184,7 +1297,7 @@ export default function AdminPage() {
             <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4">
               <div>
                 <h3 className="font-medium text-sm text-stone-900 mb-1 flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-emerald-600" />
+                  <FileText className="h-5 w-5 text-[var(--theme-accent)]" />
                   页脚自定义
                 </h3>
                 <p className="text-xs text-stone-500">自定义前台和后台页脚内容，支持 HTML</p>
@@ -1194,7 +1307,7 @@ export default function AdminPage() {
                 onChange={e => setFooterHtml(e.target.value)}
                 placeholder={`<p class="text-xs text-stone-400">Powered by <span class="font-medium">Yuamli</span> v1.0.5</p>`}
                 rows={3}
-                className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm font-mono"
+                className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm font-mono"
               />
               <p className="text-xs text-stone-400">
                 留空则显示默认页脚。修改后同时影响前台留言页和后台管理页。
@@ -1202,7 +1315,7 @@ export default function AdminPage() {
               <button
                 onClick={saveFooter}
                 disabled={footerLoading}
-                className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 rounded-lg bg-[var(--theme-accent)] text-white text-sm font-medium hover:bg-[var(--theme-accent-hover)] transition-colors disabled:opacity-50 flex items-center gap-2"
               >
                 {footerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 保存页脚
@@ -1213,7 +1326,7 @@ export default function AdminPage() {
             <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4">
               <div>
                 <h3 className="font-medium text-sm text-stone-900 mb-1 flex items-center gap-2">
-                  <Reply className="h-5 w-5 text-emerald-600" />
+                  <Reply className="h-5 w-5 text-[var(--theme-accent)]" />
                   预设回复模板
                 </h3>
                 <p className="text-xs text-stone-500">在留言管理中快速使用预设内容回复，如 &quot;这里不是无人区!&quot;</p>
@@ -1241,7 +1354,7 @@ export default function AdminPage() {
                   value={newPreset}
                   onChange={e => setNewPreset(e.target.value)}
                   placeholder="输入新的预设回复内容"
-                  className="flex-1 px-3 py-1.5 rounded-lg border border-stone-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none text-sm"
+                  className="flex-1 px-3 py-1.5 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
                   onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addPreset() } }}
                 />
                 <button
@@ -1270,8 +1383,8 @@ export default function AdminPage() {
           <div className="max-w-xl space-y-4">
             <div className="bg-white rounded-lg border border-stone-200 p-6">
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <Download className="h-5 w-5 text-emerald-600" />
+                <div className="w-10 h-10 rounded-lg bg-[var(--theme-accent-50)] flex items-center justify-center">
+                  <Download className="h-5 w-5 text-[var(--theme-accent)]" />
                 </div>
                 <div>
                   <h3 className="font-medium text-sm text-stone-900">导出数据</h3>
@@ -1280,7 +1393,7 @@ export default function AdminPage() {
               </div>
               <button
                 onClick={handleExport}
-                className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2"
+                className="px-4 py-2 rounded-lg bg-[var(--theme-accent)] text-white text-sm font-medium hover:bg-[var(--theme-accent-hover)] transition-colors flex items-center gap-2"
               >
                 <Download className="h-4 w-4" />
                 导出数据
@@ -1307,47 +1420,99 @@ export default function AdminPage() {
         )}
 
         {activeTab === "changelog" && (
-          <div className="max-w-3xl">
-            <div className="bg-white rounded-lg border border-stone-200 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-stone-50 border-b border-stone-200">
-                    <th className="text-left px-4 py-3 font-medium text-stone-600 w-28">版本</th>
-                    <th className="text-left px-4 py-3 font-medium text-stone-600">更新内容</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-stone-100">
-                  <tr>
-                    <td className="px-4 py-3 font-mono text-xs text-emerald-700 bg-emerald-50/50 font-medium">v1.0.6</td>
-                    <td className="px-4 py-3 text-stone-700">后台评论新增单条「回复」按钮，可直接在后台回复零散留言</td>
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-mono text-xs text-stone-500">v1.0.5</td>
-                    <td className="px-4 py-3 text-stone-600">独立 Footer 编辑、统一回复留言、评论区预设文本、Markdown 渲染优化、热刷新按钮、密码错误提示</td>
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-mono text-xs text-stone-500">v1.0.4</td>
-                    <td className="px-4 py-3 text-stone-600">后台管理界面优化、邮件通知模板、数据导入导出</td>
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-mono text-xs text-stone-500">v1.0.3</td>
-                    <td className="px-4 py-3 text-stone-600">GitHub OAuth 登录、访客注册、留言置顶/精华、批量管理</td>
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-mono text-xs text-stone-500">v1.0.2</td>
-                    <td className="px-4 py-3 text-stone-600">嵌套评论回复、评论树结构、用户头像显示</td>
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-mono text-xs text-stone-500">v1.0.1</td>
-                    <td className="px-4 py-3 text-stone-600">基础留言板功能、Vercel KV / 本地存储双模式</td>
-                  </tr>
-                  <tr>
-                    <td className="px-4 py-3 font-mono text-xs text-stone-500">v1.0.0</td>
-                    <td className="px-4 py-3 text-stone-600">项目初始化、Next.js + Tailwind CSS + shadcn/ui 搭建</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+          <div className="max-w-3xl space-y-4">
+            {changelogLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-6 w-6 animate-spin text-stone-400" />
+              </div>
+            ) : (
+              <>
+                {/* Editable table */}
+                <div className="bg-white rounded-lg border border-stone-200 overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-stone-50 border-b border-stone-200">
+                        <th className="text-left px-4 py-3 font-medium text-stone-600 w-32">版本</th>
+                        <th className="text-left px-4 py-3 font-medium text-stone-600">更新内容</th>
+                        <th className="w-12"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100">
+                      {changelog.map((log, i) => (
+                        <tr key={i} className={i === 0 ? "bg-[var(--theme-accent-50)]/30" : ""}>
+                          <td className="px-4 py-2">
+                            <input
+                              value={log.version}
+                              onChange={e => updateChangelogItem(i, "version", e.target.value)}
+                              className={`w-full px-2 py-1 rounded border border-stone-200 text-sm outline-none focus:border-[var(--theme-accent)] font-mono ${i === 0 ? "text-[var(--theme-accent-text)] font-medium" : "text-stone-500"}`}
+                            />
+                          </td>
+                          <td className="px-4 py-2">
+                            <input
+                              value={log.content}
+                              onChange={e => updateChangelogItem(i, "content", e.target.value)}
+                              className={`w-full px-2 py-1 rounded border border-stone-200 text-sm outline-none focus:border-[var(--theme-accent)] ${i === 0 ? "text-stone-700" : "text-stone-600"}`}
+                            />
+                          </td>
+                          <td className="px-2 py-2">
+                            <button onClick={() => removeChangelog(i)} className="text-red-400 hover:text-red-600">
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {changelog.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="px-4 py-8 text-center text-xs text-stone-400">暂无更新日志</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Add new entry */}
+                <div className="bg-white rounded-lg border border-stone-200 p-4 flex items-end gap-3">
+                  <div className="flex-1">
+                    <label className="text-xs text-stone-500 mb-1 block">版本号</label>
+                    <input
+                      value={newLogVersion}
+                      onChange={e => setNewLogVersion(e.target.value)}
+                      placeholder="如 v1.0.8"
+                      className="w-full px-3 py-1.5 rounded-lg border border-stone-300 text-sm outline-none focus:border-[var(--theme-accent)] font-mono"
+                    />
+                  </div>
+                  <div className="flex-[3]">
+                    <label className="text-xs text-stone-500 mb-1 block">更新内容</label>
+                    <input
+                      value={newLogContent}
+                      onChange={e => setNewLogContent(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addChangelog() } }}
+                      placeholder="描述本次更新内容"
+                      className="w-full px-3 py-1.5 rounded-lg border border-stone-300 text-sm outline-none focus:border-[var(--theme-accent)]"
+                    />
+                  </div>
+                  <button
+                    onClick={addChangelog}
+                    disabled={!newLogVersion.trim() || !newLogContent.trim()}
+                    className="px-3 py-1.5 rounded-lg bg-stone-800 text-white text-sm hover:bg-stone-900 transition-colors disabled:opacity-40 flex items-center gap-1"
+                  >
+                    <Plus className="h-4 w-4" /> 添加
+                  </button>
+                </div>
+
+                {/* Save button */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={saveChangelog}
+                    disabled={changelogSaving}
+                    className="px-4 py-2 rounded-lg bg-[var(--theme-accent)] text-white text-sm font-medium hover:bg-[var(--theme-accent-hover)] transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {changelogSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    保存更新日志
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
       </main>
@@ -1357,7 +1522,7 @@ export default function AdminPage() {
           {config?.footerHtml ? (
             <div dangerouslySetInnerHTML={{ __html: config.footerHtml }} />
           ) : (
-            <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.0.6</p>
+            <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.0.7</p>
           )}
         </div>
       </footer>

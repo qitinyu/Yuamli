@@ -15,11 +15,13 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Yuamli - 轻量留言系统",
-  description: "Yuamli V-1.0.5 多页面留言系统，支持 GitHub 登录、Markdown 语法、邮件通知、后台管理",
+  description: "Yuamli V-1.0.7 多页面留言系统，支持 GitHub 登录、Markdown 语法、邮件通知、后台管理",
   keywords: ["Yuamli", "comment system", "guestbook", "留言系统"],
   authors: [{ name: "Yuamli" }],
   icons: {
-    icon: "/logo.ico",
+    icon: [
+      { url: "/logo.ico", sizes: "any" },
+    ],
   },
 };
 
@@ -30,6 +32,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/logo.ico" sizes="any" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
