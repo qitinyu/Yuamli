@@ -46,13 +46,13 @@
 
 :root {
   --radius: 0.625rem;
-  /* Theme accent colors — defaults to emerald */
-  --theme-accent: #059669;
-  --theme-accent-hover: #047857;
-  --theme-accent-light: #d1fae5;
-  --theme-accent-text: #047857;
-  --theme-accent-50: #ecfdf5;
-  --theme-accent-border: #a7f3d0;
+  /* Theme accent colors — defaults to 樱花粉 */
+  --theme-accent: #DF9193;
+  --theme-accent-hover: #C47A7C;
+  --theme-accent-light: #F5D5D6;
+  --theme-accent-text: #A56A6C;
+  --theme-accent-50: #FDF2F2;
+  --theme-accent-border: #E8B8B9;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

@@ -5,59 +5,59 @@
 
 export interface ThemePreset {
   name: string
-  color: string        // main accent (e.g. #F8BBD9)
-  hover: string        // darker hover
-  light: string        // light background
-  text: string         // text on light bg
-  bg50: string         // very light bg
-  border: string       // light border
+  color: string
+  hover: string
+  light: string
+  text: string
+  bg50: string
+  border: string
 }
 
 export const THEME_PRESETS: ThemePreset[] = [
   {
     name: "樱花粉",
-    color: "#ec4899",
-    hover: "#db2777",
-    light: "#fce7f3",
-    text: "#be185d",
-    bg50: "#fdf2f8",
-    border: "#f9a8d4",
+    color: "#DF9193",
+    hover: "#C47A7C",
+    light: "#F5D5D6",
+    text: "#A56A6C",
+    bg50: "#FDF2F2",
+    border: "#E8B8B9",
   },
   {
     name: "抹茶绿",
-    color: "#16a34a",
-    hover: "#15803d",
-    light: "#dcfce7",
-    text: "#166534",
-    bg50: "#f0fdf4",
-    border: "#86efac",
+    color: "#7BAE7E",
+    hover: "#629A65",
+    light: "#D4EAD5",
+    text: "#4A7F4D",
+    bg50: "#F0F8F0",
+    border: "#A8D4A9",
   },
   {
     name: "青瓷蓝",
-    color: "#3b82f6",
-    hover: "#2563eb",
-    light: "#dbeafe",
-    text: "#1d4ed8",
-    bg50: "#eff6ff",
-    border: "#93c5fd",
+    color: "#6B8FA3",
+    hover: "#577D91",
+    light: "#CDDDE5",
+    text: "#3D6578",
+    bg50: "#EEF4F7",
+    border: "#9DBCCB",
   },
   {
     name: "琥珀黄",
-    color: "#f59e0b",
-    hover: "#d97706",
-    light: "#fef3c7",
-    text: "#b45309",
-    bg50: "#fffbeb",
-    border: "#fcd34d",
+    color: "#C9A05A",
+    hover: "#B08B45",
+    light: "#F0DFC0",
+    text: "#8A6B30",
+    bg50: "#FDF8EE",
+    border: "#DCC48E",
   },
   {
     name: "藕荷紫",
-    color: "#a855f7",
-    hover: "#9333ea",
-    light: "#f3e8ff",
-    text: "#7e22ce",
-    bg50: "#faf5ff",
-    border: "#c084fc",
+    color: "#A085B5",
+    hover: "#8B6FA2",
+    light: "#DDD2E5",
+    text: "#6B5280",
+    bg50: "#F5F0F8",
+    border: "#C2B0D1",
   },
 ]
 

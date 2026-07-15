@@ -131,7 +131,7 @@ export default function AdminPage() {
   const [presetLoading, setPresetLoading] = useState(false)
 
   // Theme
-  const [themePreset, setThemePreset] = useState<string>("emerald")
+  const [themePreset, setThemePreset] = useState<string>("樱花粉")
 
   const inited = useRef(false)
 
@@ -156,7 +156,7 @@ export default function AdminPage() {
           setNotifyTemplate(data.config?.notifyTemplate || "")
           setFooterHtml(data.config?.footerHtml || "")
           setReplyPresets(data.config?.replyPresets || [])
-          setThemePreset(data.config?.themePreset || "emerald")
+          setThemePreset(data.config?.themePreset || "樱花粉")
           await fetchComments()
         }
       }
@@ -241,7 +241,7 @@ export default function AdminPage() {
           setNotifyTemplate(data.config?.notifyTemplate || "")
           setFooterHtml(data.config?.footerHtml || "")
           setReplyPresets(data.config?.replyPresets || [])
-          setThemePreset(data.config?.themePreset || "emerald")
+          setThemePreset(data.config?.themePreset || "樱花粉")
         }
       }
     } catch {
@@ -542,9 +542,8 @@ export default function AdminPage() {
 
   // Theme
   const activeThemeStyle = (() => {
-    if (themePreset === "emerald") return {}
     const t = THEME_PRESETS.find(p => p.name === themePreset)
-    return t ? themeToStyle(t) : {}
+    return t ? themeToStyle(t) : themeToStyle(THEME_PRESETS[0])
   })()
 
   const handleThemeChange = async (name: string) => {
@@ -1156,12 +1155,6 @@ export default function AdminPage() {
                 <h3 className="font-medium text-sm text-stone-900">主题色</h3>
               </div>
               <div className="flex items-center gap-3">
-                <button
-                  onClick={() => handleThemeChange("emerald")}
-                  className={`w-9 h-9 rounded-full border-2 transition-all ${themePreset === "emerald" ? "border-stone-800 scale-110" : "border-transparent hover:scale-105"}`}
-                  style={{ background: "#059669" }}
-                  title="默认绿"
-                />
                 {THEME_PRESETS.map(p => (
                   <button
                     key={p.name}
@@ -1171,9 +1164,7 @@ export default function AdminPage() {
                     title={p.name}
                   />
                 ))}
-                <span className="text-xs text-stone-400 ml-1">
-                  {themePreset === "emerald" ? "默认绿" : themePreset}
-                </span>
+                <span className="text-xs text-stone-400 ml-1">{themePreset}</span>
               </div>
             </div>
 

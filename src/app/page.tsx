@@ -97,7 +97,7 @@ function CommentPage() {
             {footerHtml ? (
               <div dangerouslySetInnerHTML={{ __html: footerHtml }} />
             ) : (
-              <p className="text-xs text-muted-foreground">Powered by <span className="font-medium text-foreground">Yuamli</span> v1.0.7</p>
+              <p className="text-xs text-muted-foreground">Powered by <span className="font-medium text-foreground">Yuamli</span> v1.0.7.2</p>
             )}
           </div>
         </footer>
