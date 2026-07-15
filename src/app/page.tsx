@@ -8,12 +8,14 @@ import CommentList from "@/components/comment-system/CommentList"
 import CommentForm from "@/components/comment-system/CommentForm"
 import AuthModal from "@/components/comment-system/AuthModal"
 import { Loader2, RefreshCw } from "lucide-react"
+import { THEME_PRESETS, themeToStyle } from "@/lib/theme"
 
 function CommentPage() {
   const { setUser, setComments, setLoading, incrementRefresh } = useCommentStore()
   const searchParams = useSearchParams()
   const pageId = searchParams.get("pageId") || ""
   const [footerHtml, setFooterHtml] = useState<string | null>(null)
+  const [themeStyle, setThemeStyle] = useState<Record<string, string>>({})
 
   const fetchSession = useCallback(async (): Promise<boolean> => {
     try {
@@ -24,13 +26,17 @@ function CommentPage() {
     } catch { return false }
   }, [setUser])
 
-  // Fetch public config (footer)
+  // Fetch public config (footer + theme)
   const fetchConfig = useCallback(async () => {
     try {
       const res = await fetch("/api/config")
       if (res.ok) {
         const data = await res.json()
         if (data.footerHtml) setFooterHtml(data.footerHtml)
+        if (data.themePreset) {
+          const preset = THEME_PRESETS.find(p => p.name === data.themePreset)
+          if (preset) setThemeStyle(themeToStyle(preset))
+        }
       }
     } catch { /* ignore */ }
   }, [])
@@ -80,7 +86,7 @@ function CommentPage() {
   const stablePageId = useMemo(() => pageId, [pageId])
 
   return (
-    <div className="min-h-0 flex flex-col bg-gradient-to-b from-stone-50 to-white">
+    <div className="min-h-0 flex flex-col bg-gradient-to-b from-stone-50 to-white" style={themeStyle}>
       <main className="flex-1 w-full px-4 py-4">
         <div className={pageId ? "" : "max-w-2xl mx-auto"}>
           <section className="mb-6">
@@ -97,7 +103,7 @@ function CommentPage() {
             {footerHtml ? (
               <div dangerouslySetInnerHTML={{ __html: footerHtml }} />
             ) : (
-              <p className="text-xs text-muted-foreground">Powered by <span className="font-medium text-foreground">Yuamli</span> v1.0.7.2</p>
+              <p className="text-xs text-muted-foreground">Powered by <span className="font-medium text-foreground">Yuamli</span> v1.0.7.3</p>
             )}
           </div>
         </footer>

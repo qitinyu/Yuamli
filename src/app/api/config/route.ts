@@ -9,6 +9,7 @@ export async function GET() {
       siteName: config.siteName,
       footerHtml: config.footerHtml || "",
       replyPresets: config.replyPresets || [],
+      themePreset: config.themePreset || "",
     });
   } catch {
     return NextResponse.json(

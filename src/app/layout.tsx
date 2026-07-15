@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Yuamli - 轻量留言系统",
-  description: "Yuamli V-1.0.7.2 多页面留言系统，支持 GitHub 登录、Markdown 语法、邮件通知、后台管理",
+  description: "Yuamli V-1.0.7.3 多页面留言系统，支持 GitHub 登录、Markdown 语法、邮件通知、后台管理",
   keywords: ["Yuamli", "comment system", "guestbook", "留言系统"],
   authors: [{ name: "Yuamli" }],
   icons: {
