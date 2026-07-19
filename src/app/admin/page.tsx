@@ -71,6 +71,7 @@ interface SiteConfig {
   footerHtml?: string
   replyPresets?: string[]
   themePreset?: string
+  commentPlaceholder?: string
 }
 
 type Tab = "comments" | "users" | "settings" | "data" | "changelog"
@@ -133,6 +134,10 @@ export default function AdminPage() {
   // Theme
   const [themePreset, setThemePreset] = useState<string>("樱花粉")
 
+  // Comment placeholder
+  const [commentPlaceholder, setCommentPlaceholder] = useState("")
+  const [placeholderLoading, setPlaceholderLoading] = useState(false)
+
   const inited = useRef(false)
 
   // Check existing session
@@ -157,6 +162,7 @@ export default function AdminPage() {
           setFooterHtml(data.config?.footerHtml || "")
           setReplyPresets(data.config?.replyPresets || [])
           setThemePreset(data.config?.themePreset || "樱花粉")
+          setCommentPlaceholder(data.config?.commentPlaceholder || "")
           await fetchComments()
         }
       }
@@ -242,6 +248,7 @@ export default function AdminPage() {
           setFooterHtml(data.config?.footerHtml || "")
           setReplyPresets(data.config?.replyPresets || [])
           setThemePreset(data.config?.themePreset || "樱花粉")
+          setCommentPlaceholder(data.config?.commentPlaceholder || "")
         }
       }
     } catch {
@@ -538,6 +545,28 @@ export default function AdminPage() {
 
   const removePreset = (index: number) => {
     setReplyPresets(replyPresets.filter((_, i) => i !== index))
+  }
+
+  // Comment placeholder save
+  const savePlaceholder = async () => {
+    setPlaceholderLoading(true)
+    try {
+      const res = await fetch("/api/admin/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commentPlaceholder }),
+      })
+      if (res.ok) {
+        toast.success("留言占位符已保存，可手动刷新查看最新内容")
+        await fetchAdminData()
+      } else {
+        toast.error("保存失败")
+      }
+    } catch {
+      toast.error("保存失败")
+    } finally {
+      setPlaceholderLoading(false)
+    }
   }
 
   // Theme
@@ -1310,6 +1339,35 @@ export default function AdminPage() {
               >
                 {footerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 保存页脚
+              </button>
+            </div>
+
+            {/* Comment placeholder */}
+            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4">
+              <div>
+                <h3 className="font-medium text-sm text-stone-900 mb-1 flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-[var(--theme-accent)]" />
+                  留言占位符
+                </h3>
+                <p className="text-xs text-stone-500">前台留言输入框的占位提示文字（用户已登录时显示）</p>
+              </div>
+              <input
+                type="text"
+                value={commentPlaceholder}
+                onChange={e => setCommentPlaceholder(e.target.value)}
+                placeholder="写下你的留言...（支持 Markdown 语法）"
+                className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
+              />
+              <p className="text-xs text-stone-400">
+                留空则显示默认提示「写下你的留言...（支持 Markdown 语法）」。仅在用户已登录时生效，未登录时显示登录提示。
+              </p>
+              <button
+                onClick={savePlaceholder}
+                disabled={placeholderLoading}
+                className="px-4 py-2 rounded-lg bg-[var(--theme-accent)] text-white text-sm font-medium hover:bg-[var(--theme-accent-hover)] transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {placeholderLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                保存占位符
               </button>
             </div>
 

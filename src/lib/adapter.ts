@@ -27,6 +27,7 @@ const DEFAULT_CONFIG = {
   smtpPass: "",
   footerHtml: "",
   replyPresets: [] as string[],
+  commentPlaceholder: "写下你的留言...（支持 Markdown 语法）",
 };
 
 // ==================== Vercel KV (Upstash Redis REST API) ====================

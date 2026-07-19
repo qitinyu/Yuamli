@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useCommentStore } from "@/store/use-comment-store"
 import { toast } from "sonner"
-import { Eye, EyeOff, Send, X, Bold, Italic, Link, List, LogOut, User, RefreshCw } from "lucide-react"
+import { Eye, EyeOff, Send, X, LogOut, User, RefreshCw } from "lucide-react"
 import {
   Tooltip,
   TooltipContent,
@@ -21,6 +21,7 @@ interface CommentFormProps {
   autoFocus?: boolean
   pageId?: string
   onRefresh?: () => void
+  placeholder?: string
 }
 
 export default function CommentForm({
@@ -30,6 +31,7 @@ export default function CommentForm({
   autoFocus = false,
   pageId = "",
   onRefresh,
+  placeholder,
 }: CommentFormProps) {
   const { user, setUser, setShowAuthModal, setReplyingTo, incrementRefresh } = useCommentStore()
   const [content, setContent] = useState("")
@@ -42,26 +44,6 @@ export default function CommentForm({
       textareaRef.current.focus()
     }
   }, [autoFocus])
-
-  const insertMarkdown = (prefix: string, suffix: string = "") => {
-    const textarea = textareaRef.current
-    if (!textarea) return
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const selected = content.substring(start, end)
-    const newContent =
-      content.substring(0, start) +
-      prefix +
-      (selected || "文本") +
-      suffix +
-      content.substring(end)
-    setContent(newContent)
-    setTimeout(() => {
-      textarea.focus()
-      const newPos = start + prefix.length + (selected?.length || 2)
-      textarea.setSelectionRange(start + prefix.length, newPos)
-    }, 0)
-  }
 
   const handleSubmit = async () => {
     if (!content.trim()) {
@@ -133,7 +115,7 @@ export default function CommentForm({
       {!showPreview ? (
         <Textarea
           ref={textareaRef}
-          placeholder={user ? "写下你的留言...（支持 Markdown 语法）" : "登录后即可发表留言"}
+          placeholder={user ? (placeholder || "写下你的留言...（支持 Markdown 语法）") : "登录后即可发表留言"}
           value={content}
           onChange={(e) => setContent(e.target.value)}
           className="min-h-[100px] resize-y text-sm leading-relaxed"
@@ -144,93 +126,55 @@ export default function CommentForm({
         <MarkdownRenderer content={content} className="min-h-[100px] rounded-md border bg-background p-3 text-sm leading-relaxed" emptyText="暂无内容可预览" />
       )}
 
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-0.5">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => insertMarkdown("**", "**")} type="button" disabled={!user}>
-                <Bold className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>加粗</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => insertMarkdown("*", "*")} type="button" disabled={!user}>
-                <Italic className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>斜体</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => insertMarkdown("[", "](url)")} type="button" disabled={!user}>
-                <Link className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>链接</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => insertMarkdown("\n- ")} type="button" disabled={!user}>
-                <List className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>列表</TooltipContent>
-          </Tooltip>
-          <div className="mx-1.5 h-4 w-px bg-border" />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowPreview(!showPreview)} type="button">
-                {showPreview ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{showPreview ? "编辑" : "预览"}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRefresh} type="button">
-                <RefreshCw className="h-3.5 w-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>刷新留言</TooltipContent>
-          </Tooltip>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {replyTo && (
-            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={handleCancelReply}>取消</Button>
-          )}
-          {user ? (
-            <>
-              <div className="flex items-center gap-1.5 mr-1">
-                <Avatar className="h-6 w-6">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="bg-emerald-100 text-emerald-700 text-[9px] font-medium">
-                    {getInitial(user.name)}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-xs font-medium text-muted-foreground hidden sm:inline max-w-[80px] truncate">{user.name}</span>
-              </div>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={handleLogout}>
-                    <LogOut className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>退出登录</TooltipContent>
-              </Tooltip>
-            </>
-          ) : (
-            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs mr-1" onClick={() => setShowAuthModal(true)}>
-              <User className="h-3.5 w-3.5" /> 登录
-            </Button>
-          )}
-          <Button size="sm" className="h-8 gap-1.5 bg-[#DF9193] text-white hover:bg-[#c97d80]" onClick={handleSubmit} disabled={submitting || !content.trim()}>
-            <Send className="h-3.5 w-3.5" />
-            {submitting ? "发送中..." : "发送"}
+      <div className="flex items-center gap-2">
+        <Button size="sm" className="h-8 gap-1.5 bg-[#DF9193] text-white hover:bg-[#c97d80]" onClick={handleSubmit} disabled={submitting || !content.trim()}>
+          <Send className="h-3.5 w-3.5" />
+          {submitting ? "发送中..." : "发送"}
+        </Button>
+        {user ? (
+          <div className="flex items-center gap-1.5">
+            <Avatar className="h-6 w-6">
+              <AvatarImage src={user.avatar} alt={user.name} />
+              <AvatarFallback className="bg-emerald-100 text-emerald-700 text-[9px] font-medium">
+                {getInitial(user.name)}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-xs font-medium text-muted-foreground hidden sm:inline max-w-[80px] truncate">{user.name}</span>
+          </div>
+        ) : (
+          <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setShowAuthModal(true)}>
+            <User className="h-3.5 w-3.5" /> 登录
           </Button>
-        </div>
+        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setShowPreview(!showPreview)} type="button">
+              {showPreview ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{showPreview ? "编辑" : "预览"}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onRefresh} type="button">
+              <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>刷新留言</TooltipContent>
+        </Tooltip>
+        {user && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground" onClick={handleLogout}>
+                <LogOut className="h-3.5 w-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>退出登录</TooltipContent>
+          </Tooltip>
+        )}
+        {replyTo && (
+          <Button variant="ghost" size="sm" className="h-8 text-xs ml-auto" onClick={handleCancelReply}>取消</Button>
+        )}
       </div>
     </div>
   )

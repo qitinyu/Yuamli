@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save settings
-    const { email, enabled, template, smtpHost, smtpPort, smtpUser, smtpPass, footerHtml, replyPresets, themePreset } = body;
+    const { email, enabled, template, smtpHost, smtpPort, smtpUser, smtpPass, footerHtml, replyPresets, themePreset, commentPlaceholder } = body;
     const updates: Record<string, unknown> = {};
     if (email !== undefined) updates.adminEmail = email;
     if (enabled !== undefined && typeof enabled === "boolean") updates.notifyEnabled = enabled;
@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
     if (footerHtml !== undefined) updates.footerHtml = footerHtml;
     if (replyPresets !== undefined && Array.isArray(replyPresets)) updates.replyPresets = replyPresets;
     if (themePreset !== undefined && typeof themePreset === "string") updates.themePreset = themePreset;
+    if (commentPlaceholder !== undefined && typeof commentPlaceholder === "string") updates.commentPlaceholder = commentPlaceholder;
 
     const newConfig = await updateConfig(updates as any);
 

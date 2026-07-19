@@ -24,7 +24,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, content, parentId, replyTo } = body;
+    const { name, content, parentId, replyTo, pageId } = body;
 
     if (!name || typeof name !== "string" || name.trim().length < 1) {
       return NextResponse.json(
@@ -67,6 +67,7 @@ export async function POST(request: NextRequest) {
       replyTo: replyTo ? { id: replyTo.id, name: replyTo.name } : null,
       isPinned: false,
       isFeatured: false,
+      pageId: pageId || "default",
       createdAt: now,
       updatedAt: now,
     };

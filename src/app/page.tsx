@@ -16,6 +16,7 @@ function CommentPage() {
   const pageId = searchParams.get("pageId") || ""
   const [footerHtml, setFooterHtml] = useState<string | null>(null)
   const [themeStyle, setThemeStyle] = useState<Record<string, string>>({})
+  const [commentPlaceholder, setCommentPlaceholder] = useState<string>("")
 
   const fetchSession = useCallback(async (): Promise<boolean> => {
     try {
@@ -26,13 +27,14 @@ function CommentPage() {
     } catch { return false }
   }, [setUser])
 
-  // Fetch public config (footer + theme)
+  // Fetch public config (footer + theme + placeholder)
   const fetchConfig = useCallback(async () => {
     try {
       const res = await fetch("/api/config")
       if (res.ok) {
         const data = await res.json()
         if (data.footerHtml) setFooterHtml(data.footerHtml)
+        if (data.commentPlaceholder) setCommentPlaceholder(data.commentPlaceholder)
         if (data.themePreset) {
           const preset = THEME_PRESETS.find(p => p.name === data.themePreset)
           if (preset) setThemeStyle(themeToStyle(preset))
@@ -90,7 +92,7 @@ function CommentPage() {
       <main className="flex-1 w-full px-4 py-4">
         <div className={pageId ? "" : "max-w-2xl mx-auto"}>
           <section className="mb-6">
-            <CommentForm onSubmitted={() => {}} pageId={stablePageId} onRefresh={handleRefresh} />
+            <CommentForm onSubmitted={() => {}} pageId={stablePageId} onRefresh={handleRefresh} placeholder={commentPlaceholder} />
           </section>
           <section>
             <CommentList pageId={stablePageId} />

@@ -10,6 +10,7 @@ export async function GET() {
       footerHtml: config.footerHtml || "",
       replyPresets: config.replyPresets || [],
       themePreset: config.themePreset || "",
+      commentPlaceholder: config.commentPlaceholder || "",
     });
   } catch {
     return NextResponse.json(

@@ -45,6 +45,7 @@ export interface SiteConfig {
   footerHtml?: string;
   replyPresets?: string[];
   themePreset?: string;
+  commentPlaceholder?: string;
 }
 
 // ==================== Comments ====================
