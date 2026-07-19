@@ -613,10 +613,15 @@ export default function AdminPage() {
       if (res.ok) {
         toast.success("更新日志已保存")
       } else {
-        toast.error("保存失败")
+        let errMsg = "保存失败"
+        try {
+          const data = await res.json()
+          if (data?.message) errMsg = data.message
+        } catch { /* ignore */ }
+        toast.error(errMsg)
       }
-    } catch {
-      toast.error("保存失败")
+    } catch (err: any) {
+      toast.error(err?.message || "保存失败")
     }
     setChangelogSaving(false)
   }

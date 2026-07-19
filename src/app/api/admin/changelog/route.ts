@@ -22,11 +22,20 @@ function writeChangelog(data: unknown[]) {
 
 export async function GET() {
   try {
+    const admin = await isAdminAuthenticated();
+    if (!admin) {
+      return NextResponse.json(
+        { ok: false, message: "Admin authentication required" },
+        { status: 403 }
+      );
+    }
+
     const changelog = readChangelog();
     return NextResponse.json({ changelog });
-  } catch {
+  } catch (err: any) {
+    console.error("[changelog] get error:", err);
     return NextResponse.json(
-      { ok: false, message: "Internal server error" },
+      { ok: false, message: err?.message || "获取更新日志失败" },
       { status: 500 }
     );
   }
@@ -54,9 +63,10 @@ export async function POST(request: NextRequest) {
 
     writeChangelog(changelog);
     return NextResponse.json({ ok: true, message: "更新日志已保存" });
-  } catch {
+  } catch (err: any) {
+    console.error("[changelog] save error:", err);
     return NextResponse.json(
-      { ok: false, message: "Internal server error" },
+      { ok: false, message: err?.message || "保存失败" },
       { status: 500 }
     );
   }
