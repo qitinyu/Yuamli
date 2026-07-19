@@ -13,11 +13,12 @@ export async function GET() {
       );
     }
 
-    // Read all three data stores in parallel
-    const [comments, users, config] = await Promise.all([
+    // Read all data stores in parallel
+    const [comments, users, config, changelog] = await Promise.all([
       readData("comments", []),
       readData("users", []),
       readData("config", {}),
+      readData("changelog", []),
     ]);
 
     const backup = {
@@ -29,6 +30,7 @@ export async function GET() {
       comments,
       users,
       config,
+      changelog,
     };
 
     const json = JSON.stringify(backup, null, 2);
@@ -62,10 +64,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { comments, users, config, mode } = body;
+    const { comments, users, config, changelog, mode } = body;
 
     // Validate: at least one data section must be present
-    if (!comments && !users && !config) {
+    if (!comments && !users && !config && !changelog) {
       return NextResponse.json(
         { ok: false, message: "备份文件中未找到有效数据" },
         { status: 400 }
@@ -74,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     // mode: "overwrite" = replace all, "merge" = merge into existing (default)
     const isOverwrite = mode === "overwrite";
-    let stats = { comments: 0, users: 0, config: false };
+    let stats = { comments: 0, users: 0, config: false, changelog: 0 };
 
     if (comments && Array.isArray(comments)) {
       if (isOverwrite) {
@@ -109,6 +111,20 @@ export async function POST(request: NextRequest) {
     if (config && typeof config === "object") {
       await writeData("config", config);
       stats.config = true;
+    }
+
+    if (changelog && Array.isArray(changelog)) {
+      if (isOverwrite) {
+        await writeData("changelog", changelog);
+        stats.changelog = changelog.length;
+      } else {
+        const existing = await readData<Array<{ version: string; content: string }>>("changelog", []);
+        const existingVersions = new Set(existing.map((c: any) => c.version));
+        const newEntries = changelog.filter((c: any) => !existingVersions.has(c.version));
+        const merged = [...newEntries, ...existing];
+        await writeData("changelog", merged);
+        stats.changelog = newEntries.length;
+      }
     }
 
     const modeLabel = isOverwrite ? "覆盖" : "合并";
