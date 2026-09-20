@@ -51,11 +51,12 @@ export async function sendNotifyEmail(params: {
   to: string;
   subject: string;
   html: string;
+  fromName?: string;
 }): Promise<{ ok: boolean; message: string }> {
   try {
     const transporter = createTransporter(params.smtpConfig);
     const info = await transporter.sendMail({
-      from: `"Yuamli 通知" <${params.smtpConfig.smtpUser}>`,
+      from: `"${params.fromName || "Yuamli 通知"}" <${params.smtpConfig.smtpUser}>`,
       to: params.to,
       subject: params.subject,
       html: params.html,

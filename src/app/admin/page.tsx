@@ -37,13 +37,14 @@ const OAUTH_PROVIDER_LABELS: Record<string, string> = {
   github: "GitHub",
   gitee: "Gitee",
   gitcode: "GitCode",
-  qq: "QQ",
+  email: "邮箱",
 }
 
 function OAuthProviderIcon({ id }: { id: string }) {
   if (id === "github") return <Github className="h-4 w-4" />
-  const color = id === "gitee" ? "#c71d23" : id === "gitcode" ? "#fe7300" : id === "qq" ? "#12b7f5" : "#666"
-  const text = id === "gitee" ? "G" : id === "gitcode" ? "GC" : id === "qq" ? "QQ" : id.slice(0, 2).toUpperCase()
+  if (id === "email") return <Mail className="h-4 w-4" />
+  const color = id === "gitee" ? "#c71d23" : id === "gitcode" ? "#fe7300" : "#666"
+  const text = id === "gitee" ? "G" : id === "gitcode" ? "GC" : id.slice(0, 2).toUpperCase()
   return (
     <span
       className="h-4 w-4 rounded-[4px] flex items-center justify-center text-[8px] font-bold text-white leading-none"
@@ -58,7 +59,7 @@ interface CommentAuthor {
   id: string
   name: string
   avatar: string
-  type: "github" | "gitee" | "gitcode" | "qq" | "guest"
+  type: "github" | "gitee" | "gitcode" | "email" | "guest"
 }
 
 interface Comment {
@@ -80,7 +81,7 @@ interface User {
   name: string
   email: string
   avatar: string
-  type: "github" | "gitee" | "gitcode" | "qq" | "guest"
+  type: "github" | "gitee" | "gitcode" | "email" | "guest"
   qq?: string
   createdAt: string
 }
@@ -89,7 +90,7 @@ interface AdminIdentity {
   id: string
   name: string
   avatar: string
-  type: "github" | "gitee" | "gitcode" | "qq"
+  type: "github" | "gitee" | "gitcode" | "email"
 }
 
 interface SiteConfig {
@@ -129,6 +130,11 @@ export default function AdminPage() {
   const [notifyEmail, setNotifyEmail] = useState("")
   const [notifyEnabled, setNotifyEnabled] = useState(false)
   const [notifyTemplate, setNotifyTemplate] = useState("")
+  const [smtpHost, setSmtpHost] = useState("smtp.qq.com")
+  const [smtpPort, setSmtpPort] = useState("465")
+  const [smtpUser, setSmtpUser] = useState("")
+  const [smtpPass, setSmtpPass] = useState("")
+  const [testingSmtp, setTestingSmtp] = useState(false)
 
   // Password change form
   const [oldPwd, setOldPwd] = useState("")
@@ -201,6 +207,10 @@ export default function AdminPage() {
           setNotifyEmail(data.config?.adminEmail || "")
           setNotifyEnabled(data.config?.notifyEnabled || false)
           setNotifyTemplate(data.config?.notifyTemplate || "")
+          setSmtpHost(data.config?.smtpHost || "smtp.qq.com")
+          setSmtpPort(String(data.config?.smtpPort || 465))
+          setSmtpUser(data.config?.smtpUser || "")
+          setSmtpPass(data.config?.smtpPass || "")
           setFooterHtml(data.config?.footerHtml || "")
           setReplyPresets(data.config?.replyPresets || [])
           setThemePreset(data.config?.themePreset || "樱花粉")
@@ -224,6 +234,10 @@ export default function AdminPage() {
           setNotifyEmail(data.config?.adminEmail || "")
           setNotifyEnabled(data.config?.notifyEnabled || false)
           setNotifyTemplate(data.config?.notifyTemplate || "")
+          setSmtpHost(data.config?.smtpHost || "smtp.qq.com")
+          setSmtpPort(String(data.config?.smtpPort || 465))
+          setSmtpUser(data.config?.smtpUser || "")
+          setSmtpPass(data.config?.smtpPass || "")
           setFooterHtml(data.config?.footerHtml || "")
           setReplyPresets(data.config?.replyPresets || [])
           setThemePreset(data.config?.themePreset || "樱花粉")
@@ -519,6 +533,10 @@ export default function AdminPage() {
           email: notifyEmail,
           enabled: notifyEnabled,
           template: notifyTemplate,
+          smtpHost,
+          smtpPort: Number(smtpPort) || 465,
+          smtpUser,
+          smtpPass,
         }),
       })
       if (res.ok) {
@@ -529,6 +547,39 @@ export default function AdminPage() {
       }
     } catch {
       toast.error("保存失败")
+    }
+  }
+
+  // SMTP connection test
+  const handleTestSmtp = async () => {
+    if (!smtpUser || !smtpPass) {
+      toast.error("请先填写 SMTP 账号和授权码")
+      return
+    }
+    setTestingSmtp(true)
+    try {
+      const res = await fetch("/api/admin/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "test",
+          smtpHost,
+          smtpPort: Number(smtpPort) || 465,
+          smtpUser,
+          smtpPass,
+          testEmail: notifyEmail || smtpUser,
+        }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        toast.success(data.message || "SMTP 连接成功")
+      } else {
+        toast.error(data.message || "测试失败")
+      }
+    } catch {
+      toast.error("测试失败")
+    } finally {
+      setTestingSmtp(false)
     }
   }
 
@@ -1443,8 +1494,57 @@ export default function AdminPage() {
             {/* Notification settings */}
             <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-5">
               <div>
-                <h3 className="font-medium text-sm text-stone-900 mb-1">邮件通知设置</h3>
-                <p className="text-xs text-stone-500">新留言时通过邮件通知管理员</p>
+                <h3 className="font-medium text-sm text-stone-900 mb-1">邮件设置</h3>
+                <p className="text-xs text-stone-500">配置 SMTP 发信服务，用于新留言通知与前台「邮箱验证码登录」</p>
+              </div>
+
+              {/* SMTP config */}
+              <div className="rounded-lg bg-stone-50 border border-stone-200 p-4 space-y-3">
+                <div className="text-xs font-medium text-stone-600">SMTP 发信服务</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-stone-500 mb-1">SMTP 服务器</label>
+                    <input
+                      value={smtpHost}
+                      onChange={e => setSmtpHost(e.target.value)}
+                      placeholder="smtp.qq.com"
+                      className="w-full px-3 py-1.5 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-stone-500 mb-1">SMTP 端口</label>
+                    <input
+                      value={smtpPort}
+                      onChange={e => setSmtpPort(e.target.value.replace(/\D/g, ""))}
+                      placeholder="465"
+                      inputMode="numeric"
+                      className="w-full px-3 py-1.5 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-stone-500 mb-1">SMTP 账号（发件邮箱）</label>
+                    <input
+                      type="email"
+                      value={smtpUser}
+                      onChange={e => setSmtpUser(e.target.value)}
+                      placeholder="123456789@qq.com"
+                      className="w-full px-3 py-1.5 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-stone-500 mb-1">SMTP 授权码</label>
+                    <input
+                      type="password"
+                      value={smtpPass}
+                      onChange={e => setSmtpPass(e.target.value)}
+                      placeholder="邮箱 SMTP 授权码（非登录密码）"
+                      className="w-full px-3 py-1.5 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-stone-400">
+                  QQ 邮箱示例：服务器 smtp.qq.com、端口 465，授权码在 QQ 邮箱「设置 → 账号 → POP3/IMAP/SMTP 服务」中开启后获取
+                </p>
               </div>
 
               <div>
@@ -1488,12 +1588,21 @@ export default function AdminPage() {
                 </p>
               </div>
 
-              <button
-                onClick={saveSettings}
-                className="px-4 py-2 rounded-lg bg-stone-800 text-white text-sm font-medium hover:bg-stone-900 transition-colors"
-              >
-                保存设置
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={saveSettings}
+                  className="px-4 py-2 rounded-lg bg-stone-800 text-white text-sm font-medium hover:bg-stone-900 transition-colors"
+                >
+                  保存设置
+                </button>
+                <button
+                  onClick={handleTestSmtp}
+                  disabled={testingSmtp}
+                  className="px-4 py-2 rounded-lg border border-stone-300 text-stone-700 text-sm font-medium hover:bg-stone-50 transition-colors disabled:opacity-50"
+                >
+                  {testingSmtp ? "测试中..." : "测试连接"}
+                </button>
+              </div>
             </div>
 
             {/* Footer editor */}

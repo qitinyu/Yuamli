@@ -1,7 +1,7 @@
 import { readData, writeData, DEFAULT_CONFIG } from "./adapter";
 
-export type OAuthType = "github" | "gitee" | "gitcode" | "qq";
-export type UserType = OAuthType | "guest";
+export type OAuthType = "github" | "gitee" | "gitcode";
+export type UserType = OAuthType | "email" | "guest";
 
 export interface AdminIdentity {
   id: string;
@@ -231,4 +231,45 @@ export async function updateConfig(
   const newConfig = { ...config, ...updates };
   await writeData("config", newConfig);
   return newConfig;
+}
+
+// ==================== Email login codes ====================
+
+export interface EmailCodeEntry {
+  code: string;
+  expiresAt: number;
+  sentAt: number;
+  attempts: number;
+}
+
+async function readEmailCodes(): Promise<Record<string, EmailCodeEntry>> {
+  return readData<Record<string, EmailCodeEntry>>("email-codes", {});
+}
+
+export async function getEmailCode(email: string): Promise<EmailCodeEntry | null> {
+  const all = await readEmailCodes();
+  const entry = all[email];
+  if (!entry) return null;
+  if (entry.expiresAt < Date.now()) {
+    delete all[email];
+    await writeData("email-codes", all);
+    return null;
+  }
+  return entry;
+}
+
+export async function setEmailCode(
+  email: string,
+  entry: EmailCodeEntry
+): Promise<void> {
+  const all = await readEmailCodes();
+  all[email] = entry;
+  await writeData("email-codes", all);
+}
+
+export async function deleteEmailCode(email: string): Promise<void> {
+  const all = await readEmailCodes();
+  if (!all[email]) return;
+  delete all[email];
+  await writeData("email-codes", all);
 }
