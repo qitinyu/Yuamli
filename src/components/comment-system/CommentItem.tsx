@@ -164,10 +164,10 @@ export default function CommentItem({
                 GitCode
               </Badge>
             )}
-            {comment.author.type === "qq" && (
-              <Badge variant="secondary" className="h-4 px-1.5 text-[10px] gap-0.5 text-[#12b7f5]">
-                <span className="h-2.5 w-2.5 rounded-[2px] bg-[#12b7f5] text-white text-[7px] font-bold flex items-center justify-center leading-none">QQ</span>
-                QQ
+            {comment.author.type === "email" && (
+              <Badge variant="secondary" className="h-4 px-1.5 text-[10px] gap-0.5 text-emerald-600">
+                <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                邮箱
               </Badge>
             )}
             {comment.isPinned && (

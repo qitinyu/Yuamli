@@ -15,13 +15,12 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useCommentStore } from "@/store/use-comment-store"
 import { toast } from "sonner"
-import { Github, UserPlus, LogIn, MessageCircle, AlertCircle, HeartHandshake } from "lucide-react"
+import { Github, UserPlus, LogIn, MessageCircle, AlertCircle, HeartHandshake, Mail, ShieldCheck } from "lucide-react"
 
 const PROVIDER_META: Record<string, { label: string; color: string; text: string }> = {
   github: { label: "GitHub", color: "#24292f", text: "GH" },
   gitee: { label: "Gitee", color: "#c71d23", text: "G" },
   gitcode: { label: "GitCode", color: "#fe7300", text: "GC" },
-  qq: { label: "QQ", color: "#12b7f5", text: "QQ" },
 }
 
 function ProviderBadge({ id }: { id: string }) {
@@ -43,6 +42,12 @@ export default function AuthModal() {
   const [loading, setLoading] = useState(false)
   const [formError, setFormError] = useState("")
   const [providers, setProviders] = useState<string[]>([])
+  const [emailEnabled, setEmailEnabled] = useState(false)
+
+  // 邮箱验证码登录
+  const [emailForm, setEmailForm] = useState({ email: "", code: "" })
+  const [sending, setSending] = useState(false)
+  const [countdown, setCountdown] = useState(0)
 
   // 游客登录 tab：默认「注册并登录」，可切换为「直接登录」
   const [guestMode, setGuestMode] = useState<"register" | "login">("register")
@@ -54,16 +59,24 @@ export default function AuthModal() {
     confirm: "",
   })
 
-  // Fetch enabled OAuth providers
+  // Fetch enabled OAuth providers + email login availability
   useEffect(() => {
     if (!showAuthModal) return
     fetch("/api/config")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.oauthProviders) setProviders(data.oauthProviders)
+        setEmailEnabled(!!data?.emailLoginEnabled)
       })
       .catch(() => {})
   }, [showAuthModal])
+
+  // 验证码 60s 倒计时
+  useEffect(() => {
+    if (countdown <= 0) return
+    const t = setTimeout(() => setCountdown((c) => c - 1), 1000)
+    return () => clearTimeout(t)
+  }, [countdown])
 
   // ===== 友人登录：OAuth popup flow =====
   const handleOAuthLogin = (provider: string) => {
@@ -120,6 +133,72 @@ export default function AuthModal() {
       if (popup?.closed) cleanup()
     }, 500)
     setTimeout(cleanup, 180000)
+  }
+
+  // ===== 友人登录：邮箱验证码 =====
+  const handleSendCode = async () => {
+    setFormError("")
+    const email = emailForm.email.trim()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setFormError("请输入有效的邮箱地址")
+      return
+    }
+    setSending(true)
+    try {
+      const res = await fetch("/api/auth/email/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setFormError(data.error || "发送失败")
+        return
+      }
+      setCountdown(60)
+      toast.success("验证码已发送，请查收邮件（留意垃圾箱）")
+    } catch {
+      setFormError("网络错误，请重试")
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setFormError("")
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailForm.email.trim())) {
+      setFormError("请输入有效的邮箱地址")
+      return
+    }
+    if (!/^\d{6}$/.test(emailForm.code)) {
+      setFormError("请输入 6 位验证码")
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch("/api/auth/email/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: emailForm.email.trim(),
+          code: emailForm.code,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setFormError(data.error || "登录失败")
+        return
+      }
+      setUser(data.user)
+      setShowAuthModal(false)
+      setEmailForm({ email: "", code: "" })
+      toast.success(`登录成功，欢迎 ${data.user.name}！`)
+    } catch {
+      setFormError("网络错误，请重试")
+    } finally {
+      setLoading(false)
+    }
   }
 
   // ===== 游客登录：注册即登录 =====
@@ -249,31 +328,95 @@ export default function AuthModal() {
             </TabsTrigger>
           </TabsList>
 
-          {/* ===== 友人登录：OAuth 授权即登录 ===== */}
+          {/* ===== 友人登录：OAuth 授权即登录 + 邮箱验证码 ===== */}
           <TabsContent value="friends">
             <div className="space-y-3 pt-2">
               <p className="text-xs text-center text-muted-foreground">
-                无须注册，选择以下方式授权成功即可验证身份
+                无须注册，授权成功或邮箱验证通过即可登录
               </p>
-              {providers.length === 0 ? (
+              {providers.length === 0 && !emailEnabled ? (
                 <div className="rounded-md bg-muted/50 text-muted-foreground text-xs text-center px-3 py-4">
                   暂未启用任何友人登录方式
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  {providers.map((p) => (
-                    <Button
-                      key={p}
-                      variant="outline"
-                      className="w-full gap-2"
-                      onClick={() => handleOAuthLogin(p)}
-                      disabled={loading}
-                    >
-                      <ProviderBadge id={p} />
-                      {PROVIDER_META[p]?.label || p}
-                    </Button>
-                  ))}
-                </div>
+                <>
+                  {providers.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {providers.map((p) => (
+                        <Button
+                          key={p}
+                          variant="outline"
+                          className="w-full gap-2"
+                          onClick={() => handleOAuthLogin(p)}
+                          disabled={loading}
+                        >
+                          <ProviderBadge id={p} />
+                          {PROVIDER_META[p]?.label || p}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                  {providers.length > 0 && emailEnabled && (
+                    <div className="flex items-center gap-2">
+                      <div className="h-px bg-border flex-1" />
+                      <span className="text-[10px] text-muted-foreground">或</span>
+                      <div className="h-px bg-border flex-1" />
+                    </div>
+                  )}
+                  {emailEnabled && (
+                    <form onSubmit={handleEmailLogin} className="space-y-2">
+                      <div className="relative">
+                        <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type="email"
+                          placeholder="邮箱地址"
+                          className="pl-8 pr-[92px]"
+                          value={emailForm.email}
+                          onChange={(e) => {
+                            setEmailForm({ ...emailForm, email: e.target.value })
+                            setFormError("")
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-1.5 top-1.5 h-7 rounded-md px-2 text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:no-underline"
+                          onClick={handleSendCode}
+                          disabled={countdown > 0 || sending}
+                        >
+                          {countdown > 0
+                            ? `${countdown}s 后重发`
+                            : sending
+                              ? "发送中..."
+                              : "获取验证码"}
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <ShieldCheck className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          placeholder="6 位验证码"
+                          className="pl-8"
+                          inputMode="numeric"
+                          maxLength={6}
+                          value={emailForm.code}
+                          onChange={(e) => {
+                            setEmailForm({ ...emailForm, code: e.target.value.replace(/\D/g, "") })
+                            setFormError("")
+                          }}
+                        />
+                      </div>
+                      {formError && (
+                        <div className="flex items-center gap-2 rounded-md bg-destructive/10 text-destructive text-xs px-3 py-2">
+                          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                          <span>{formError}</span>
+                        </div>
+                      )}
+                      <Button type="submit" className="w-full gap-2" disabled={loading}>
+                        <Mail className="h-4 w-4" />
+                        {loading ? "登录中..." : "邮箱验证码登录"}
+                      </Button>
+                    </form>
+                  )}
+                </>
               )}
             </div>
           </TabsContent>
