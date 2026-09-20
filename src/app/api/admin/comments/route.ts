@@ -5,7 +5,23 @@ import {
   addComment,
   batchDeleteComments,
   batchUpdateComments,
+  getConfig,
+  type CommentAuthor,
 } from "@/lib/storage";
+
+/** Author used for admin replies: the bound personal identity, or the default 管理员 */
+async function getAdminAuthor(): Promise<CommentAuthor> {
+  const config = await getConfig();
+  if (config.adminIdentity) {
+    return {
+      id: config.adminIdentity.id,
+      name: config.adminIdentity.name,
+      avatar: config.adminIdentity.avatar,
+      type: config.adminIdentity.type,
+    };
+  }
+  return { id: "admin", name: "管理员", avatar: "", type: "guest" };
+}
 
 export async function GET() {
   try {
@@ -96,15 +112,11 @@ export async function POST(request: NextRequest) {
           );
         }
         const now = new Date().toISOString();
+        const adminAuthor = await getAdminAuthor();
         const saved = await addComment({
           id: crypto.randomUUID(),
           content: content.trim(),
-          author: {
-            id: "admin",
-            name: "管理员",
-            avatar: "",
-            type: "guest",
-          },
+          author: adminAuthor,
           parentId: parentId,
           replyTo: { id: parent.author.id, name: parent.author.name },
           isPinned: false,
@@ -124,6 +136,7 @@ export async function POST(request: NextRequest) {
           );
         }
         const now = new Date().toISOString();
+        const adminAuthor = await getAdminAuthor();
         let count = 0;
         for (const parentId of ids) {
           const parent = await getComments().then(c => c.find(x => x.id === parentId));
@@ -131,12 +144,7 @@ export async function POST(request: NextRequest) {
           await addComment({
             id: crypto.randomUUID(),
             content: content.trim(),
-            author: {
-              id: "admin",
-              name: "管理员",
-              avatar: "",
-              type: "guest",
-            },
+            author: adminAuthor,
             parentId: parentId,
             replyTo: { id: parent.author.id, name: parent.author.name },
             isPinned: false,

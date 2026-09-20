@@ -11,7 +11,7 @@ import { Loader2, RefreshCw } from "lucide-react"
 import { THEME_PRESETS, themeToStyle } from "@/lib/theme"
 
 function CommentPage() {
-  const { setUser, setComments, setLoading, incrementRefresh } = useCommentStore()
+  const { setUser, setComments, setLoading, incrementRefresh, setAdminAuthorId } = useCommentStore()
   const searchParams = useSearchParams()
   const pageId = searchParams.get("pageId") || ""
   const [footerHtml, setFooterHtml] = useState<string | null>(null)
@@ -27,7 +27,7 @@ function CommentPage() {
     } catch { return false }
   }, [setUser])
 
-  // Fetch public config (footer + theme + placeholder)
+  // Fetch public config (footer + theme + placeholder + admin badge + providers)
   const fetchConfig = useCallback(async () => {
     try {
       const res = await fetch("/api/config")
@@ -35,13 +35,14 @@ function CommentPage() {
         const data = await res.json()
         if (data.footerHtml) setFooterHtml(data.footerHtml)
         if (data.commentPlaceholder) setCommentPlaceholder(data.commentPlaceholder)
+        if (data.adminAuthorId) setAdminAuthorId(data.adminAuthorId)
         if (data.themePreset) {
           const preset = THEME_PRESETS.find(p => p.name === data.themePreset)
           if (preset) setThemeStyle(themeToStyle(preset))
         }
       }
     } catch { /* ignore */ }
-  }, [])
+  }, [setAdminAuthorId])
 
   // Manual refresh
   const handleRefresh = useCallback(() => {
@@ -50,20 +51,38 @@ function CommentPage() {
   }, [incrementRefresh])
 
   useEffect(() => {
-    fetchSession()
-    fetchConfig()
+    void fetchSession()
+    void fetchConfig()
   }, [fetchSession, fetchConfig])
+
+  // Direct-navigation OAuth result (popup blocked / callback redirect fallback)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("oauth_login") === "success") {
+      const name = params.get("name")
+      toast.success(`登录成功${name ? `，欢迎 ${name}！` : "！"}`)
+      void fetchSession()
+      params.delete("oauth_login"); params.delete("name")
+    }
+    const oauthError = params.get("oauth_error")
+    if (oauthError) {
+      toast.error(`登录失败: ${oauthError}`)
+      params.delete("oauth_error")
+    }
+    const qs = params.toString()
+    window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : ""))
+  }, [])
 
   // Listen for BroadcastChannel (popup OAuth result)
   useEffect(() => {
     const bc = new BroadcastChannel("yuamli-auth")
     bc.addEventListener("message", async (e) => {
-      const { status, name } = e.data
+      const { status, name, error } = e.data
       if (status === "success") {
-        toast.success(`GitHub 登录成功${name ? `，欢迎 ${name}！` : "！"}`)
+        toast.success(`登录成功${name ? `，欢迎 ${name}！` : "！"}`)
         await fetchSession()
       } else if (status === "error") {
-        toast.error(`GitHub 登录失败: ${name || "未知错误"}`)
+        toast.error(`登录失败: ${error || name || "未知错误"}`)
       }
     })
     return () => bc.close()
@@ -73,12 +92,12 @@ function CommentPage() {
   useEffect(() => {
     const handler = async (e: MessageEvent) => {
       if (e.data?.type !== "yuamli-auth") return
-      const { status, name } = e.data.data || e.data
+      const { status, name, error } = e.data.data || e.data
       if (status === "success") {
-        toast.success(`GitHub 登录成功${name ? `，欢迎 ${name}！` : "！"}`)
+        toast.success(`登录成功${name ? `，欢迎 ${name}！` : "！"}`)
         await fetchSession()
       } else if (status === "error") {
-        toast.error(`GitHub 登录失败: ${name || "未知错误"}`)
+        toast.error(`登录失败: ${error || name || "未知错误"}`)
       }
     }
     window.addEventListener("message", handler)
