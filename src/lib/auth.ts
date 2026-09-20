@@ -1,11 +1,12 @@
-import { cookies } from "next/headers";
+﻿import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import type { UserType } from "./storage";
 
 export interface SessionUser {
   id: string;
   name: string;
   avatar: string;
-  type: "github" | "guest";
+  type: UserType;
   email: string;
 }
 
@@ -29,7 +30,7 @@ export function verifyPassword(password: string, hash: string): boolean { return
 
 /** Encode session user into a base64 cookie value */
 function encodeSessionCookie(
-  user: { id: string; name: string; avatar: string; type: "github" | "guest"; email: string }
+  user: { id: string; name: string; avatar: string; type: UserType; email: string }
 ): string {
   return Buffer.from(JSON.stringify(user)).toString("base64");
 }
@@ -70,7 +71,7 @@ export async function isAdminAuthenticated(): Promise<boolean> {
 /** Create a JSON response with the session cookie attached */
 export function sessionResponse<T extends object>(
   data: T,
-  user: { id: string; name: string; avatar: string; type: "github" | "guest"; email: string },
+  user: { id: string; name: string; avatar: string; type: UserType; email: string },
   maxAge?: number
 ): NextResponse<T> {
   const response = NextResponse.json(data);
@@ -81,7 +82,7 @@ export function sessionResponse<T extends object>(
 /** Attach a session cookie to an existing NextResponse (e.g. a redirect) */
 export function attachSessionToResponse(
   response: NextResponse,
-  user: { id: string; name: string; avatar: string; type: "github" | "guest"; email: string },
+  user: { id: string; name: string; avatar: string; type: UserType; email: string },
   maxAge?: number
 ): void {
   response.cookies.set(SESSION_COOKIE, encodeSessionCookie(user), sessionCookieOptions(maxAge));

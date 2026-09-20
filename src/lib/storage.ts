@@ -1,10 +1,20 @@
 import { readData, writeData, DEFAULT_CONFIG } from "./adapter";
 
+export type OAuthType = "github" | "gitee" | "gitcode" | "qq";
+export type UserType = OAuthType | "guest";
+
+export interface AdminIdentity {
+  id: string;
+  name: string;
+  avatar: string;
+  type: OAuthType;
+}
+
 export interface CommentAuthor {
   id: string;
   name: string;
   avatar: string;
-  type: "github" | "guest";
+  type: UserType;
 }
 
 export interface Comment {
@@ -26,7 +36,7 @@ export interface User {
   name: string;
   email: string;
   avatar: string;
-  type: "github" | "guest";
+  type: UserType;
   password?: string;
   qq?: string;
   createdAt: string;
@@ -46,6 +56,7 @@ export interface SiteConfig {
   replyPresets?: string[];
   themePreset?: string;
   commentPlaceholder?: string;
+  adminIdentity?: AdminIdentity | null;
 }
 
 // ==================== Comments ====================
@@ -176,6 +187,12 @@ export async function getUserByGithubId(
 ): Promise<User | undefined> {
   const users = await getUsers();
   return users.find((u) => u.type === "github" && u.id === id);
+}
+
+/** Find any OAuth user (github/gitee/gitcode/qq) by prefixed id, e.g. "gh_123", "qq_ABC" */
+export async function getUserByOAuthId(id: string): Promise<User | undefined> {
+  const users = await getUsers();
+  return users.find((u) => u.type !== "guest" && u.id === id);
 }
 
 export async function addUser(user: User): Promise<User> {

@@ -2,11 +2,14 @@
 
 import { create } from 'zustand';
 
+export type OAuthType = 'github' | 'gitee' | 'gitcode' | 'qq';
+export type UserType = OAuthType | 'guest';
+
 interface CommentAuthor {
   id: string;
   name: string;
   avatar: string;
-  type: 'github' | 'guest';
+  type: UserType;
 }
 
 interface Comment {
@@ -27,7 +30,7 @@ interface SessionUser {
   id: string;
   name: string;
   avatar: string;
-  type: 'github' | 'guest';
+  type: UserType;
   email: string;
 }
 
@@ -43,8 +46,10 @@ interface CommentState {
   comments: Comment[];
   loading: boolean;
   showAuthModal: boolean;
-  authModalTab: 'login' | 'register';
+  authModalTab: 'friends' | 'guest';
   showAdminPanel: boolean;
+  /** Author id that renders with a 站长 badge (bound admin identity or legacy "admin") */
+  adminAuthorId: string;
   /** IDs of top-level comments that are COLLAPSED (hidden) */
   collapsedComments: Set<string>;
   replyingTo: ReplyTarget | null;
@@ -55,8 +60,9 @@ interface CommentState {
   setComments: (comments: Comment[]) => void;
   setLoading: (val: boolean) => void;
   setShowAuthModal: (val: boolean) => void;
-  setAuthModalTab: (tab: 'login' | 'register') => void;
+  setAuthModalTab: (tab: 'friends' | 'guest') => void;
   setShowAdminPanel: (val: boolean) => void;
+  setAdminAuthorId: (id: string) => void;
   toggleCollapse: (id: string) => void;
   setReplyingTo: (target: ReplyTarget | null) => void;
   incrementRefresh: () => void;
@@ -71,8 +77,9 @@ export const useCommentStore = create<CommentState>()((set) => ({
   comments: [],
   loading: false,
   showAuthModal: false,
-  authModalTab: 'login',
+  authModalTab: 'friends',
   showAdminPanel: false,
+  adminAuthorId: 'admin',
   collapsedComments: new Set<string>(),
   replyingTo: initialReplyingTo,
   refreshKey: 0,
@@ -84,6 +91,7 @@ export const useCommentStore = create<CommentState>()((set) => ({
   setShowAuthModal: (val) => set({ showAuthModal: val }),
   setAuthModalTab: (tab) => set({ authModalTab: tab }),
   setShowAdminPanel: (val) => set({ showAdminPanel: val }),
+  setAdminAuthorId: (id) => set({ adminAuthorId: id }),
 
   toggleCollapse: (id) =>
     set((state) => {
@@ -103,8 +111,9 @@ export const useCommentStore = create<CommentState>()((set) => ({
       comments: [],
       loading: false,
       showAuthModal: false,
-      authModalTab: 'login',
+      authModalTab: 'friends',
       showAdminPanel: false,
+      adminAuthorId: 'admin',
       collapsedComments: new Set<string>(),
       replyingTo: initialReplyingTo,
       refreshKey: 0,

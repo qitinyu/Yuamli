@@ -28,14 +28,37 @@ import {
   X,
   FileText,
   Palette,
+  UserCircle2,
+  Github,
 } from "lucide-react"
 import { THEME_PRESETS, themeToStyle, type ThemePreset } from "@/lib/theme"
+
+const OAUTH_PROVIDER_LABELS: Record<string, string> = {
+  github: "GitHub",
+  gitee: "Gitee",
+  gitcode: "GitCode",
+  qq: "QQ",
+}
+
+function OAuthProviderIcon({ id }: { id: string }) {
+  if (id === "github") return <Github className="h-4 w-4" />
+  const color = id === "gitee" ? "#c71d23" : id === "gitcode" ? "#fe7300" : id === "qq" ? "#12b7f5" : "#666"
+  const text = id === "gitee" ? "G" : id === "gitcode" ? "GC" : id === "qq" ? "QQ" : id.slice(0, 2).toUpperCase()
+  return (
+    <span
+      className="h-4 w-4 rounded-[4px] flex items-center justify-center text-[8px] font-bold text-white leading-none"
+      style={{ background: color }}
+    >
+      {text}
+    </span>
+  )
+}
 
 interface CommentAuthor {
   id: string
   name: string
   avatar: string
-  type: "github" | "guest"
+  type: "github" | "gitee" | "gitcode" | "qq" | "guest"
 }
 
 interface Comment {
@@ -57,9 +80,16 @@ interface User {
   name: string
   email: string
   avatar: string
-  type: "github" | "guest"
+  type: "github" | "gitee" | "gitcode" | "qq" | "guest"
   qq?: string
   createdAt: string
+}
+
+interface AdminIdentity {
+  id: string
+  name: string
+  avatar: string
+  type: "github" | "gitee" | "gitcode" | "qq"
 }
 
 interface SiteConfig {
@@ -72,6 +102,7 @@ interface SiteConfig {
   replyPresets?: string[]
   themePreset?: string
   commentPlaceholder?: string
+  adminIdentity?: AdminIdentity | null
 }
 
 type Tab = "comments" | "users" | "settings" | "data" | "changelog"
@@ -138,14 +169,48 @@ export default function AdminPage() {
   const [commentPlaceholder, setCommentPlaceholder] = useState("")
   const [placeholderLoading, setPlaceholderLoading] = useState(false)
 
+  // OAuth providers enabled on the server
+  const [oauthProviders, setOauthProviders] = useState<string[]>([])
+  const [identityLoading, setIdentityLoading] = useState(false)
+
   const inited = useRef(false)
 
-  // Check existing session
-  useEffect(() => {
-    if (inited.current) return
-    inited.current = true
-    checkSession()
-  }, [])
+  const fetchComments = async () => {
+    setDataLoading(true)
+    try {
+      const res = await fetch("/api/admin/comments")
+      if (res.ok) {
+        const data = await res.json()
+        setComments(data.comments || [])
+      }
+    } catch {
+      toast.error("获取留言失败")
+    } finally {
+      setDataLoading(false)
+    }
+  }
+
+  const fetchAdminData = async () => {
+    try {
+      const res = await fetch("/api/admin", { method: "GET" })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.users) {
+          setUsers(data.users)
+          setConfig(data.config)
+          setNotifyEmail(data.config?.adminEmail || "")
+          setNotifyEnabled(data.config?.notifyEnabled || false)
+          setNotifyTemplate(data.config?.notifyTemplate || "")
+          setFooterHtml(data.config?.footerHtml || "")
+          setReplyPresets(data.config?.replyPresets || [])
+          setThemePreset(data.config?.themePreset || "樱花粉")
+          setCommentPlaceholder(data.config?.commentPlaceholder || "")
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
 
   const checkSession = async () => {
     try {
@@ -172,6 +237,31 @@ export default function AdminPage() {
       setLoading(false)
     }
   }
+
+  // Check existing session + handle OAuth redirect results (once on mount)
+  useEffect(() => {
+    if (inited.current) return
+    inited.current = true
+    void checkSession()
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("bound") === "1") {
+      toast.success("管理员身份绑定成功，回复将以个人身份显示")
+    }
+    const oauthError = params.get("oauth_error")
+    if (oauthError) {
+      toast.error(oauthError)
+    }
+    if (params.get("bound") === "1" || oauthError) {
+      params.delete("bound"); params.delete("oauth_error")
+      const qs = params.toString()
+      window.history.replaceState(null, "", window.location.pathname + (qs ? `?${qs}` : ""))
+    }
+    // Fetch enabled OAuth providers
+    fetch("/api/config")
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => { if (data?.oauthProviders) setOauthProviders(data.oauthProviders) })
+      .catch(() => {})
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -213,47 +303,34 @@ export default function AdminPage() {
     }
   }
 
+  // Unbind the admin personal identity
+  const handleUnbindIdentity = async () => {
+    if (!confirm("确认解绑管理员身份？解绑后回复将以默认「管理员」身份显示")) return
+    setIdentityLoading(true)
+    try {
+      const res = await fetch("/api/admin/identity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "unbind" }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(data.message || "已解绑")
+        await fetchAdminData()
+      } else {
+        toast.error(data.message || "解绑失败")
+      }
+    } catch {
+      toast.error("解绑失败")
+    } finally {
+      setIdentityLoading(false)
+    }
+  }
+
   // Refresh all data
   const handleRefresh = async () => {
     await Promise.all([fetchComments(), fetchAdminData()])
     toast.success("已刷新")
-  }
-
-  const fetchComments = async () => {
-    setDataLoading(true)
-    try {
-      const res = await fetch("/api/admin/comments")
-      if (res.ok) {
-        const data = await res.json()
-        setComments(data.comments || [])
-      }
-    } catch {
-      toast.error("获取留言失败")
-    } finally {
-      setDataLoading(false)
-    }
-  }
-
-  const fetchAdminData = async () => {
-    try {
-      const res = await fetch("/api/admin", { method: "GET" })
-      if (res.ok) {
-        const data = await res.json()
-        if (data.users) {
-          setUsers(data.users)
-          setConfig(data.config)
-          setNotifyEmail(data.config?.adminEmail || "")
-          setNotifyEnabled(data.config?.notifyEnabled || false)
-          setNotifyTemplate(data.config?.notifyTemplate || "")
-          setFooterHtml(data.config?.footerHtml || "")
-          setReplyPresets(data.config?.replyPresets || [])
-          setThemePreset(data.config?.themePreset || "樱花粉")
-          setCommentPlaceholder(data.config?.commentPlaceholder || "")
-        }
-      }
-    } catch {
-      // ignore
-    }
   }
 
   // Comment actions
@@ -770,6 +847,35 @@ export default function AdminPage() {
                 )}
               </button>
             </form>
+
+            {oauthProviders.length > 0 && (
+              <>
+                <div className="relative my-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-stone-200" />
+                  </div>
+                  <div className="relative flex justify-center text-xs">
+                    <span className="bg-white px-2 text-stone-400">或使用友人账号登录</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {oauthProviders.map(p => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => { window.location.href = `/api/auth/${p}?mode=admin` }}
+                      className="flex items-center justify-center gap-2 py-2 rounded-lg border border-stone-300 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
+                    >
+                      <OAuthProviderIcon id={p} />
+                      {OAUTH_PROVIDER_LABELS[p] || p}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-center text-[11px] text-stone-400 mt-3">
+                  绑定的友人账号将以此身份参与留言回复
+                </p>
+              </>
+            )}
           </div>
           <p className="text-center text-xs text-stone-400 mt-4">
             Yuamli 留言系统 · 管理后台
@@ -937,6 +1043,11 @@ export default function AdminPage() {
                     </button>
                   </div>
                   <div className="p-5 space-y-4">
+                    <div className="text-xs text-stone-500 bg-stone-50 rounded-md px-3 py-2">
+                      回复身份：{config?.adminIdentity
+                        ? <span className="font-medium text-stone-800">{config.adminIdentity.name}</span>
+                        : <span>默认「管理员」（可在设置中绑定个人身份）</span>}
+                    </div>
                     <textarea
                       value={unifiedReplyContent}
                       onChange={e => setUnifiedReplyContent(e.target.value)}
@@ -1000,6 +1111,11 @@ export default function AdminPage() {
                     <p className="text-xs text-stone-400 line-clamp-2">{replyTarget.content}</p>
                   </div>
                   <div className="p-5 space-y-4">
+                    <div className="text-xs text-stone-500 bg-stone-50 rounded-md px-3 py-2">
+                      回复身份：{config?.adminIdentity
+                        ? <span className="font-medium text-stone-800">{config.adminIdentity.name}</span>
+                        : <span>默认「管理员」（可在设置中绑定个人身份）</span>}
+                    </div>
                     <textarea
                       value={replyContent}
                       onChange={e => setReplyContent(e.target.value)}
@@ -1164,7 +1280,7 @@ export default function AdminPage() {
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-sm text-stone-900">{u.name}</span>
                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">
-                            {u.type === "github" ? "GitHub" : "游客"}
+                            {u.type === "guest" ? "游客" : (OAUTH_PROVIDER_LABELS[u.type] || u.type)}
                           </span>
                         </div>
                         <p className="text-xs text-stone-400">
@@ -1200,6 +1316,68 @@ export default function AdminPage() {
                 ))}
                 <span className="text-xs text-stone-400 ml-1">{themePreset}</span>
               </div>
+            </div>
+
+            {/* Admin identity binding */}
+            <div className="bg-white rounded-lg border border-stone-200 p-6">
+              <div className="flex items-center gap-2 mb-1">
+                <UserCircle2 className="h-5 w-5 text-[var(--theme-accent)]" />
+                <h3 className="font-medium text-sm text-stone-900">管理员身份</h3>
+              </div>
+              <p className="text-xs text-stone-500 mb-4">
+                绑定后可用友人账号一键登录后台，回复留言时将以个人身份显示
+              </p>
+              {config?.adminIdentity ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 rounded-lg bg-stone-50 border border-stone-100 px-3 py-2.5">
+                    <div className="w-9 h-9 rounded-full bg-stone-200 overflow-hidden flex items-center justify-center text-sm font-medium text-stone-600 shrink-0">
+                      {config.adminIdentity.avatar ? (
+                        <img src={config.adminIdentity.avatar} alt={config.adminIdentity.name} className="w-full h-full object-cover" />
+                      ) : (
+                        config.adminIdentity.name.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm text-stone-900">{config.adminIdentity.name}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 flex items-center gap-1">
+                          <OAuthProviderIcon id={config.adminIdentity.type} />
+                          {OAUTH_PROVIDER_LABELS[config.adminIdentity.type] || config.adminIdentity.type}
+                        </span>
+                      </div>
+                      <p className="text-xs text-stone-400">当前回复身份 · 留言区将显示「站长」徽章</p>
+                    </div>
+                    <button
+                      onClick={handleUnbindIdentity}
+                      disabled={identityLoading}
+                      className="text-xs text-red-500 hover:text-red-600 disabled:opacity-50 shrink-0"
+                    >
+                      解绑
+                    </button>
+                  </div>
+                  <p className="text-xs text-stone-400">更换身份：先解绑，再重新绑定</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-stone-400">尚未绑定，当前回复以默认「管理员」身份显示</p>
+                  {oauthProviders.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {oauthProviders.map(p => (
+                        <button
+                          key={p}
+                          onClick={() => { window.location.href = `/api/auth/${p}?mode=bind` }}
+                          className="flex items-center justify-center gap-2 py-2 rounded-lg border border-stone-300 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
+                        >
+                          <OAuthProviderIcon id={p} />
+                          绑定 {OAUTH_PROVIDER_LABELS[p] || p}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-red-400">未配置任何 OAuth 提供方（环境变量）</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Password change */}

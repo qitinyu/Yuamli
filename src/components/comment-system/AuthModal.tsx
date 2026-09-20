@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -15,27 +15,174 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useCommentStore } from "@/store/use-comment-store"
 import { toast } from "sonner"
-import { Github, Mail, UserPlus, LogIn, MessageCircle, AlertCircle } from "lucide-react"
+import { Github, UserPlus, LogIn, MessageCircle, AlertCircle, HeartHandshake } from "lucide-react"
+
+const PROVIDER_META: Record<string, { label: string; color: string; text: string }> = {
+  github: { label: "GitHub", color: "#24292f", text: "GH" },
+  gitee: { label: "Gitee", color: "#c71d23", text: "G" },
+  gitcode: { label: "GitCode", color: "#fe7300", text: "GC" },
+  qq: { label: "QQ", color: "#12b7f5", text: "QQ" },
+}
+
+function ProviderBadge({ id }: { id: string }) {
+  if (id === "github") return <Github className="h-4 w-4" />
+  const meta = PROVIDER_META[id]
+  return (
+    <span
+      className="h-4 w-4 rounded-[4px] flex items-center justify-center text-[8px] font-bold text-white leading-none"
+      style={{ background: meta?.color || "#666" }}
+    >
+      {meta?.text || id.slice(0, 2).toUpperCase()}
+    </span>
+  )
+}
 
 export default function AuthModal() {
   const { showAuthModal, setShowAuthModal, authModalTab, setAuthModalTab, setUser } =
     useCommentStore()
   const [loading, setLoading] = useState(false)
-  const [loginError, setLoginError] = useState("")
-  const [loginForm, setLoginForm] = useState({ identifier: "", password: "" })
+  const [formError, setFormError] = useState("")
+  const [providers, setProviders] = useState<string[]>([])
+
+  // 游客登录 tab：默认「注册并登录」，可切换为「直接登录」
+  const [guestMode, setGuestMode] = useState<"register" | "login">("register")
   const [rememberMe, setRememberMe] = useState(false)
-  const [registerForm, setRegisterForm] = useState({
+  const [guestForm, setGuestForm] = useState({
     name: "",
-    qq: "",
-    email: "",
+    account: "",
     password: "",
+    confirm: "",
   })
 
-  const handleLogin = async (e: React.FormEvent) => {
+  // Fetch enabled OAuth providers
+  useEffect(() => {
+    if (!showAuthModal) return
+    fetch("/api/config")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.oauthProviders) setProviders(data.oauthProviders)
+      })
+      .catch(() => {})
+  }, [showAuthModal])
+
+  // ===== 友人登录：OAuth popup flow =====
+  const handleOAuthLogin = (provider: string) => {
+    const w = 600, h = 700
+    const left = (screen.width - w) / 2
+    const top = (screen.height - h) / 2
+    const popup = window.open(
+      `/api/auth/${provider}`,
+      "yuamli_oauth",
+      `width=${w},height=${h},left=${left},top=${top},resizable=no,scrollbars=yes`
+    )
+    if (!popup) {
+      toast.error("弹窗被浏览器拦截，请允许弹窗后重试")
+      return
+    }
+
+    const bc = new BroadcastChannel("yuamli-auth")
+    const cleanup = () => {
+      bc.close()
+      window.removeEventListener("message", onPost)
+      clearInterval(checkClosed)
+    }
+
+    const handleResult = async (status: string, name: string, error: string, providerLabel: string) => {
+      cleanup()
+      if (status === "success") {
+        toast.success(`${providerLabel || "友人"} 登录成功${name ? `，欢迎 ${name}！` : "！"}`)
+        try {
+          const res = await fetch("/api/auth/session", { credentials: "same-origin" })
+          const data = await res.json()
+          if (data.user) {
+            setUser(data.user)
+            setShowAuthModal(false)
+          }
+        } catch { /* ignore */ }
+      } else {
+        toast.error(`登录失败: ${error || name || "未知错误"}`)
+      }
+    }
+
+    bc.addEventListener("message", (e) =>
+      handleResult(e.data.status, e.data.name, e.data.error, e.data.provider)
+    )
+
+    // Fallback: postMessage
+    const onPost = (e: MessageEvent) => {
+      if (e.data?.type !== "yuamli-auth") return
+      const d = e.data.data || e.data
+      handleResult(d.status, d.name, d.error, d.provider)
+    }
+    window.addEventListener("message", onPost)
+
+    const checkClosed = setInterval(() => {
+      if (popup?.closed) cleanup()
+    }, 500)
+    setTimeout(cleanup, 180000)
+  }
+
+  // ===== 游客登录：注册即登录 =====
+  const handleGuestRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoginError("")
-    if (!loginForm.identifier || !loginForm.password) {
-      setLoginError("请填写完整的登录信息")
+    setFormError("")
+    if (!guestForm.name.trim()) {
+      setFormError("请填写昵称")
+      return
+    }
+    if (guestForm.name.trim().length > 20) {
+      setFormError("昵称不能超过 20 个字符")
+      return
+    }
+    if (!/^\d{6,10}$/.test(guestForm.account)) {
+      setFormError("账号需为 6-10 位数字")
+      return
+    }
+    if (guestForm.password.length < 6) {
+      setFormError("密码至少 6 个字符")
+      return
+    }
+    if (guestForm.password !== guestForm.confirm) {
+      setFormError("两次输入的密码不一致")
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch("/api/auth/guest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: guestForm.name.trim(),
+          account: guestForm.account,
+          password: guestForm.password,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setFormError(data.error || "操作失败")
+        return
+      }
+      setUser(data.user)
+      setShowAuthModal(false)
+      setGuestForm({ name: "", account: "", password: "", confirm: "" })
+      toast.success(
+        data.mode === "register"
+          ? `注册成功，欢迎 ${data.user.name}！`
+          : `欢迎回来，${data.user.name}！`
+      )
+    } catch {
+      setFormError("网络错误，请重试")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // ===== 游客登录：已有账号直接登录 =====
+  const handleGuestLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setFormError("")
+    if (!guestForm.account || !guestForm.password) {
+      setFormError("请填写账号和密码")
       return
     }
     setLoading(true)
@@ -43,119 +190,40 @@ export default function AuthModal() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...loginForm, remember: rememberMe }),
+        body: JSON.stringify({
+          identifier: guestForm.account,
+          password: guestForm.password,
+          remember: rememberMe,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
-        setLoginError(data.error || "登录失败")
+        setFormError(data.error || "登录失败")
         return
       }
       setUser(data.user)
       setShowAuthModal(false)
-      setLoginForm({ identifier: "", password: "" })
-      setLoginError("")
+      setGuestForm({ name: "", account: "", password: "", confirm: "" })
       toast.success(`欢迎回来，${data.user.name}！`)
     } catch {
-      setLoginError("网络错误，请重试")
+      setFormError("网络错误，请重试")
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!registerForm.name || !registerForm.qq || !registerForm.password) {
-      toast.error("请填写昵称、QQ号和密码")
-      return
-    }
-    if (!/^\d{5,12}$/.test(registerForm.qq)) {
-      toast.error("QQ号需为 5-12 位数字")
-      return
-    }
-    if (registerForm.password.length < 6) {
-      toast.error("密码至少6个字符")
-      return
-    }
-    setLoading(true)
-    try {
-      const body: Record<string, string> = { ...registerForm }
-      if (!body.email) delete body.email
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        toast.error(data.error || "注册失败")
-        return
-      }
-      setUser(data.user)
-      setShowAuthModal(false)
-      setRegisterForm({ name: "", qq: "", email: "", password: "" })
-      toast.success(`注册成功，欢迎 ${data.user.name}！`)
-    } catch {
-      toast.error("网络错误，请重试")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleGithubLogin = () => {
-    const clientId = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID;
-    if (!clientId) {
-      toast.error("GitHub OAuth 未配置，请设置 NEXT_PUBLIC_GITHUB_CLIENT_ID 环境变量");
-      return;
-    }
-    const redirectUri = encodeURIComponent(window.location.origin + "/api/auth/github/callback");
-    const scope = "user:email read:user";
-    const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}`;
-
-    // Open popup window for GitHub OAuth
-    const w = 600, h = 700;
-    const left = (screen.width - w) / 2;
-    const top = (screen.height - h) / 2;
-    const popup = window.open(authUrl, "yuamli_gh_auth", `width=${w},height=${h},left=${left},top=${top},resizable=no,scrollbars=yes`);
-
-    // Listen for BroadcastChannel from callback page
-    const bc = new BroadcastChannel("yuamli-auth");
-    const cleanup = () => { bc.close(); window.removeEventListener("message", onPost); clearInterval(checkClosed); };
-
-    const handleResult = async (s: string, n: string) => {
-      cleanup();
-      if (s === "success") {
-        toast.success(`GitHub 登录成功${n ? `，欢迎 ${n}！` : "！"}`);
-        try {
-          const res = await fetch("/api/auth/session", { credentials: "same-origin" });
-          const data = await res.json();
-          if (data.user) { setUser(data.user); setShowAuthModal(false); }
-        } catch { /* ignore */ }
-      } else {
-        toast.error(`GitHub 登录失败: ${n || "未知错误"}`);
-      }
-    };
-
-    bc.addEventListener("message", (e) => handleResult(e.data.status, e.data.name));
-
-    // Fallback: postMessage
-    const onPost = (e: MessageEvent) => {
-      if (e.data?.type !== "yuamli-auth") return;
-      const d = e.data.data || e.data;
-      handleResult(d.status, d.name);
-    };
-    window.addEventListener("message", onPost);
-
-    // Cleanup if popup closed without completion
-    const checkClosed = setInterval(() => { if (popup?.closed) cleanup(); }, 500);
-    setTimeout(cleanup, 180000);
   }
 
   return (
-    <Dialog open={showAuthModal} onOpenChange={(open) => { setShowAuthModal(open); if (!open) setLoginError("") }}>
+    <Dialog
+      open={showAuthModal}
+      onOpenChange={(open) => {
+        setShowAuthModal(open)
+        if (!open) setFormError("")
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-center text-lg font-semibold">
-            登录 / 注册
+            登录
           </DialogTitle>
           <DialogDescription className="text-center text-sm text-muted-foreground">
             登录后即可发表留言
@@ -164,174 +232,214 @@ export default function AuthModal() {
 
         <Tabs
           value={authModalTab}
-          onValueChange={(v) => { setAuthModalTab(v as "login" | "register"); setLoginError("") }}
+          onValueChange={(v) => {
+            setAuthModalTab(v as "friends" | "guest")
+            setFormError("")
+          }}
           className="w-full"
         >
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login" className="flex items-center gap-1.5">
-              <LogIn className="h-3.5 w-3.5" />
-              登录
+            <TabsTrigger value="friends" className="flex items-center gap-1.5">
+              <HeartHandshake className="h-3.5 w-3.5" />
+              友人登录
             </TabsTrigger>
-            <TabsTrigger value="register" className="flex items-center gap-1.5">
+            <TabsTrigger value="guest" className="flex items-center gap-1.5">
               <UserPlus className="h-3.5 w-3.5" />
-              注册
+              游客登录
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="login">
-            <form onSubmit={handleLogin} className="space-y-3 pt-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="login-id" className="text-xs">
-                  QQ号 / 邮箱
-                </Label>
-                <div className="relative">
-                  <MessageCircle className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          {/* ===== 友人登录：OAuth 授权即登录 ===== */}
+          <TabsContent value="friends">
+            <div className="space-y-3 pt-2">
+              <p className="text-xs text-center text-muted-foreground">
+                无须注册，选择以下方式授权成功即可验证身份
+              </p>
+              {providers.length === 0 ? (
+                <div className="rounded-md bg-muted/50 text-muted-foreground text-xs text-center px-3 py-4">
+                  暂未启用任何友人登录方式
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {providers.map((p) => (
+                    <Button
+                      key={p}
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={() => handleOAuthLogin(p)}
+                      disabled={loading}
+                    >
+                      <ProviderBadge id={p} />
+                      {PROVIDER_META[p]?.label || p}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* ===== 游客登录：注册即登录 ===== */}
+          <TabsContent value="guest">
+            {guestMode === "register" ? (
+              <form onSubmit={handleGuestRegister} className="space-y-3 pt-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="guest-name" className="text-xs">
+                    昵称 <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="relative">
+                    <UserPlus className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="guest-name"
+                      placeholder="你的昵称"
+                      className="pl-8"
+                      value={guestForm.name}
+                      maxLength={20}
+                      onChange={(e) => {
+                        setGuestForm({ ...guestForm, name: e.target.value })
+                        setFormError("")
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="guest-account" className="text-xs">
+                    账号 <span className="text-destructive">*</span>
+                  </Label>
+                  <div className="relative">
+                    <MessageCircle className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="guest-account"
+                      placeholder="6-10 位数字"
+                      className="pl-8"
+                      value={guestForm.account}
+                      inputMode="numeric"
+                      maxLength={10}
+                      onChange={(e) => {
+                        setGuestForm({ ...guestForm, account: e.target.value.replace(/\D/g, "") })
+                        setFormError("")
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="guest-pw" className="text-xs">
+                    密码（至少6位） <span className="text-destructive">*</span>
+                  </Label>
                   <Input
-                    id="login-id"
-                    placeholder="输入 QQ号 或 邮箱"
-                    className="pl-8"
-                    value={loginForm.identifier}
+                    id="guest-pw"
+                    type="password"
+                    placeholder="设置密码"
+                    value={guestForm.password}
                     onChange={(e) => {
-                      setLoginForm({ ...loginForm, identifier: e.target.value })
-                      setLoginError("")
+                      setGuestForm({ ...guestForm, password: e.target.value })
+                      setFormError("")
                     }}
                   />
                 </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="login-pw" className="text-xs">
-                  密码
-                </Label>
-                <Input
-                  id="login-pw"
-                  type="password"
-                  placeholder="输入密码"
-                  value={loginForm.password}
-                  onChange={(e) => {
-                    setLoginForm({ ...loginForm, password: e.target.value })
-                    setLoginError("")
+                <div className="space-y-1.5">
+                  <Label htmlFor="guest-pw2" className="text-xs">
+                    确认密码 <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="guest-pw2"
+                    type="password"
+                    placeholder="再次输入密码"
+                    value={guestForm.confirm}
+                    onChange={(e) => {
+                      setGuestForm({ ...guestForm, confirm: e.target.value })
+                      setFormError("")
+                    }}
+                  />
+                </div>
+                {formError && (
+                  <div className="flex items-center gap-2 rounded-md bg-destructive/10 text-destructive text-xs px-3 py-2">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    <span>{formError}</span>
+                  </div>
+                )}
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "提交中..." : "注册并登录"}
+                </Button>
+                <button
+                  type="button"
+                  className="w-full text-center text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    setGuestMode("login")
+                    setFormError("")
                   }}
-                />
-              </div>
-              {/* Remember me */}
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="remember-me"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked === true)}
-                  className="h-3.5 w-3.5"
-                />
-                <Label htmlFor="remember-me" className="text-xs text-muted-foreground cursor-pointer select-none">
-                  记住我（30天免登录）
-                </Label>
-              </div>
-              {/* Error message */}
-              {loginError && (
-                <div className="flex items-center gap-2 rounded-md bg-destructive/10 text-destructive text-xs px-3 py-2">
-                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                  <span>{loginError}</span>
+                >
+                  已有账号？直接登录
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleGuestLogin} className="space-y-3 pt-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="login-account" className="text-xs">
+                    账号
+                  </Label>
+                  <div className="relative">
+                    <MessageCircle className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="login-account"
+                      placeholder="输入注册时的账号"
+                      className="pl-8"
+                      value={guestForm.account}
+                      onChange={(e) => {
+                        setGuestForm({ ...guestForm, account: e.target.value })
+                        setFormError("")
+                      }}
+                    />
+                  </div>
                 </div>
-              )}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "登录中..." : "登录"}
-              </Button>
-            </form>
-          </TabsContent>
-
-          <TabsContent value="register">
-            <form onSubmit={handleRegister} className="space-y-3 pt-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="reg-name" className="text-xs">
-                  昵称
-                </Label>
-                <div className="relative">
-                  <UserPlus className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <div className="space-y-1.5">
+                  <Label htmlFor="login-pw" className="text-xs">
+                    密码
+                  </Label>
                   <Input
-                    id="reg-name"
-                    placeholder="你的昵称"
-                    className="pl-8"
-                    value={registerForm.name}
-                    onChange={(e) =>
-                      setRegisterForm({ ...registerForm, name: e.target.value })
-                    }
-                    maxLength={20}
+                    id="login-pw"
+                    type="password"
+                    placeholder="输入密码"
+                    value={guestForm.password}
+                    onChange={(e) => {
+                      setGuestForm({ ...guestForm, password: e.target.value })
+                      setFormError("")
+                    }}
                   />
                 </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="reg-qq" className="text-xs">
-                  QQ号 <span className="text-destructive">*</span>
-                </Label>
-                <div className="relative">
-                  <MessageCircle className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="reg-qq"
-                    placeholder="QQ号码（5-12位数字）"
-                    className="pl-8"
-                    value={registerForm.qq}
-                    onChange={(e) =>
-                      setRegisterForm({ ...registerForm, qq: e.target.value })
-                    }
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="remember-me"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(checked === true)}
+                    className="h-3.5 w-3.5"
                   />
+                  <Label htmlFor="remember-me" className="text-xs text-muted-foreground cursor-pointer select-none">
+                    记住我（30天免登录）
+                  </Label>
                 </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="reg-email" className="text-xs">
-                  邮箱（可选）
-                </Label>
-                <div className="relative">
-                  <Mail className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="reg-email"
-                    type="email"
-                    placeholder="your@email.com"
-                    className="pl-8"
-                    value={registerForm.email}
-                    onChange={(e) =>
-                      setRegisterForm({ ...registerForm, email: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="reg-pw" className="text-xs">
-                  密码（至少6位）
-                </Label>
-                <Input
-                  id="reg-pw"
-                  type="password"
-                  placeholder="设置密码"
-                  value={registerForm.password}
-                  onChange={(e) =>
-                    setRegisterForm({ ...registerForm, password: e.target.value })
-                  }
-                />
-              </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "注册中..." : "注册"}
-              </Button>
-            </form>
+                {formError && (
+                  <div className="flex items-center gap-2 rounded-md bg-destructive/10 text-destructive text-xs px-3 py-2">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    <span>{formError}</span>
+                  </div>
+                )}
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "登录中..." : "登录"}
+                </Button>
+                <button
+                  type="button"
+                  className="w-full text-center text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => {
+                    setGuestMode("register")
+                    setFormError("")
+                  }}
+                >
+                  没有账号？注册并登录
+                </button>
+              </form>
+            )}
           </TabsContent>
         </Tabs>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">或</span>
-          </div>
-        </div>
-
-        <Button
-          variant="outline"
-          className="w-full gap-2"
-          onClick={handleGithubLogin}
-          disabled={loading}
-        >
-          <Github className="h-4 w-4" />
-          使用 GitHub 登录
-        </Button>
       </DialogContent>
     </Dialog>
   )

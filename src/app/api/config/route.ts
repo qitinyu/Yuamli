@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getConfig } from "@/lib/storage";
+import { getEnabledProviders } from "@/lib/oauth";
 
 export async function GET() {
   try {
@@ -11,6 +12,10 @@ export async function GET() {
       replyPresets: config.replyPresets || [],
       themePreset: config.themePreset || "",
       commentPlaceholder: config.commentPlaceholder || "",
+      // enabled OAuth providers (github/gitee/gitcode/qq)
+      oauthProviders: getEnabledProviders(),
+      // author id that should render with a 站长 badge (bound identity or legacy "admin")
+      adminAuthorId: config.adminIdentity?.id || "admin",
     });
   } catch {
     return NextResponse.json(
