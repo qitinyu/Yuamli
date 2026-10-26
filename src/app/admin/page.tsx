@@ -1818,7 +1818,7 @@ export default function AdminPage() {
                     <input
                       value={newLogVersion}
                       onChange={e => setNewLogVersion(e.target.value)}
-                      placeholder="如 v1.0.9"
+                      placeholder="如 v1.1.0"
                       className="w-full px-3 py-1.5 rounded-lg border border-stone-300 text-sm outline-none focus:border-[var(--theme-accent)] font-mono"
                     />
                   </div>
@@ -1863,7 +1863,7 @@ export default function AdminPage() {
           {config?.footerHtml ? (
             <div dangerouslySetInnerHTML={{ __html: config.footerHtml }} />
           ) : (
-            <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.0.9</p>
+            <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.1.0</p>
           )}
         </div>
       </footer>
