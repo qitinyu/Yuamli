@@ -1,5 +1,5 @@
 /**
- * Unified OAuth module for GitHub / Gitee / GitCode
+ * Unified OAuth module for GitHub / Gitee
  *
  * Flow (authorization code):
  *   1. GET /api/auth/{provider}[?mode=login|admin|bind]  → redirect to provider authorize URL
@@ -9,14 +9,13 @@
  * Required env vars:
  *   GitHub : GITHUB_CLIENT_ID / GITHUB_CLIENT_SECRET
  *   Gitee  : GITEE_CLIENT_ID / GITEE_CLIENT_SECRET
- *   GitCode: GITCODE_CLIENT_ID / GITCODE_CLIENT_SECRET
  */
 
 import { addUser, getUserByOAuthId, updateUser, type OAuthType, type User } from "./storage";
 
 export type { OAuthType };
 
-const OAUTH_PROVIDERS: OAuthType[] = ["github", "gitee", "gitcode"];
+const OAUTH_PROVIDERS: OAuthType[] = ["github", "gitee"];
 
 export function isOAuthProvider(value: string): value is OAuthType {
   return (OAUTH_PROVIDERS as string[]).includes(value);
@@ -36,10 +35,6 @@ export function getProviderCredentials(provider: OAuthType): Credentials | null 
     case "gitee":
       return process.env.GITEE_CLIENT_ID && process.env.GITEE_CLIENT_SECRET
         ? { clientId: process.env.GITEE_CLIENT_ID, clientSecret: process.env.GITEE_CLIENT_SECRET }
-        : null;
-    case "gitcode":
-      return process.env.GITCODE_CLIENT_ID && process.env.GITCODE_CLIENT_SECRET
-        ? { clientId: process.env.GITCODE_CLIENT_ID, clientSecret: process.env.GITCODE_CLIENT_SECRET }
         : null;
   }
 }
@@ -68,8 +63,6 @@ export function buildAuthorizeUrl(
       return `https://github.com/login/oauth/authorize?client_id=${cred.clientId}&redirect_uri=${redirectUri}&scope=${encodeURIComponent("user:email read:user")}&state=${encodeURIComponent(state)}`;
     case "gitee":
       return `https://gitee.com/oauth/authorize?client_id=${cred.clientId}&redirect_uri=${redirectUri}&response_type=code&state=${encodeURIComponent(state)}`;
-    case "gitcode":
-      return `https://gitcode.com/oauth/authorize?client_id=${cred.clientId}&redirect_uri=${redirectUri}&response_type=code&state=${encodeURIComponent(state)}`;
   }
 }
 
@@ -105,9 +98,8 @@ async function exchangeToken(
     return { accessToken: data.access_token };
   }
 
-  if (provider === "gitee" || provider === "gitcode") {
-    const host = provider === "gitee" ? "https://gitee.com" : "https://gitcode.com";
-    // Both endpoints only accept form-urlencoded bodies (GitCode rejects JSON)
+  if (provider === "gitee") {
+    // Gitee only accepts form-urlencoded bodies (JSON is rejected)
     const body = new URLSearchParams({
       grant_type: "authorization_code",
       client_id: cred.clientId,
@@ -115,7 +107,7 @@ async function exchangeToken(
       code,
       redirect_uri: redirectUri,
     });
-    const res = await fetch(`${host}/oauth/token`, {
+    const res = await fetch("https://gitee.com/oauth/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -161,15 +153,15 @@ async function fetchProfile(
     };
   }
 
-  if (provider === "gitee" || provider === "gitcode") {
-    const host = provider === "gitee" ? "https://gitee.com" : "https://gitcode.com";
-    const res = await fetch(`${host}/api/v5/user?access_token=${token.accessToken}`);
+  if (provider === "gitee") {
+    const res = await fetch(
+      `https://gitee.com/api/v5/user?access_token=${token.accessToken}`
+    );
     if (!res.ok) throw new Error("获取用户信息失败");
     const u = await res.json();
-    const prefix = provider === "gitee" ? "gitee_" : "gc_";
     return {
-      id: prefix + u.id,
-      name: (u.name || u.login || `${provider} User`).slice(0, 20),
+      id: "gitee_" + u.id,
+      name: (u.name || u.login || "Gitee User").slice(0, 20),
       avatar: u.avatar_url || "",
       email: u.email || "",
     };

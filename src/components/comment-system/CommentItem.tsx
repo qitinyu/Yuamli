@@ -15,6 +15,7 @@ import {
   MessageSquare,
   ChevronDown,
   ChevronUp,
+  Link2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -30,6 +31,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Pencil, Check, X } from "lucide-react"
 import CommentForm from "./CommentForm"
 import MarkdownRenderer from "./MarkdownRenderer"
+import { displayHost, normalizeUrl } from "@/lib/utils"
 import type { Comment } from "@/store/use-comment-store"
 
 interface CommentItemProps {
@@ -141,6 +143,18 @@ export default function CommentItem({
           {/* Header */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-sm">{comment.author.name}</span>
+            {normalizeUrl(comment.website) && (
+              <a
+                href={normalizeUrl(comment.website)!}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                title={comment.website}
+                className="inline-flex items-center gap-0.5 max-w-[150px] truncate text-[11px] text-muted-foreground hover:text-[var(--theme-accent-text)] hover:underline"
+              >
+                <Link2 className="h-2.5 w-2.5 shrink-0" />
+                <span className="truncate">{displayHost(comment.website)}</span>
+              </a>
+            )}
             {comment.author.id === adminAuthorId && (
               <Badge className="h-4 px-1.5 text-[10px] gap-0.5 bg-emerald-600 hover:bg-emerald-700 text-white">
                 站长
@@ -156,12 +170,6 @@ export default function CommentItem({
               <Badge variant="secondary" className="h-4 px-1.5 text-[10px] gap-0.5 text-[#c71d23]">
                 <span className="h-2.5 w-2.5 rounded-[2px] bg-[#c71d23] text-white text-[7px] font-bold flex items-center justify-center leading-none">G</span>
                 Gitee
-              </Badge>
-            )}
-            {comment.author.type === "gitcode" && (
-              <Badge variant="secondary" className="h-4 px-1.5 text-[10px] gap-0.5 text-[#fe7300]">
-                <span className="h-2.5 w-2.5 rounded-[2px] bg-[#fe7300] text-white text-[7px] font-bold flex items-center justify-center leading-none">GC</span>
-                GitCode
               </Badge>
             )}
             {comment.author.type === "email" && (

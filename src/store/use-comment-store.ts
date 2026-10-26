@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 
-export type OAuthType = 'github' | 'gitee' | 'gitcode' | 'email';
+export type OAuthType = 'github' | 'gitee' | 'email';
 export type UserType = OAuthType | 'guest';
 
 interface CommentAuthor {
@@ -18,6 +18,7 @@ interface Comment {
   author: CommentAuthor;
   parentId: string | null;
   replyTo: { id: string; name: string } | null;
+  website?: string;
   isPinned: boolean;
   isFeatured: boolean;
   pageId: string;
@@ -47,7 +48,6 @@ interface CommentState {
   loading: boolean;
   showAuthModal: boolean;
   authModalTab: 'friends' | 'guest';
-  showAdminPanel: boolean;
   /** Author id that renders with a 站长 badge (bound admin identity or legacy "admin") */
   adminAuthorId: string;
   /** IDs of top-level comments that are COLLAPSED (hidden) */
@@ -61,7 +61,6 @@ interface CommentState {
   setLoading: (val: boolean) => void;
   setShowAuthModal: (val: boolean) => void;
   setAuthModalTab: (tab: 'friends' | 'guest') => void;
-  setShowAdminPanel: (val: boolean) => void;
   setAdminAuthorId: (id: string) => void;
   toggleCollapse: (id: string) => void;
   setReplyingTo: (target: ReplyTarget | null) => void;
@@ -78,7 +77,6 @@ export const useCommentStore = create<CommentState>()((set) => ({
   loading: false,
   showAuthModal: false,
   authModalTab: 'friends',
-  showAdminPanel: false,
   adminAuthorId: 'admin',
   collapsedComments: new Set<string>(),
   replyingTo: initialReplyingTo,
@@ -90,7 +88,6 @@ export const useCommentStore = create<CommentState>()((set) => ({
   setLoading: (val) => set({ loading: val }),
   setShowAuthModal: (val) => set({ showAuthModal: val }),
   setAuthModalTab: (tab) => set({ authModalTab: tab }),
-  setShowAdminPanel: (val) => set({ showAdminPanel: val }),
   setAdminAuthorId: (id) => set({ adminAuthorId: id }),
 
   toggleCollapse: (id) =>
@@ -112,8 +109,7 @@ export const useCommentStore = create<CommentState>()((set) => ({
       loading: false,
       showAuthModal: false,
       authModalTab: 'friends',
-      showAdminPanel: false,
-      adminAuthorId: 'admin',
+          adminAuthorId: 'admin',
       collapsedComments: new Set<string>(),
       replyingTo: initialReplyingTo,
       refreshKey: 0,

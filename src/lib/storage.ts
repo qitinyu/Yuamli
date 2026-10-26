@@ -1,6 +1,6 @@
 import { readData, writeData, DEFAULT_CONFIG } from "./adapter";
 
-export type OAuthType = "github" | "gitee" | "gitcode";
+export type OAuthType = "github" | "gitee";
 export type UserType = OAuthType | "email" | "guest";
 
 export interface AdminIdentity {
@@ -23,6 +23,8 @@ export interface Comment {
   author: CommentAuthor;
   parentId: string | null;
   replyTo: { id: string; name: string } | null;
+  /** 作者填写的个人网址（可选，仅用于展示链接） */
+  website?: string;
   isPinned: boolean;
   isFeatured: boolean;
   pageId: string;
@@ -165,11 +167,6 @@ export async function getUsers(): Promise<User[]> {
   return readData<User[]>("users", []);
 }
 
-export async function getUserById(id: string): Promise<User | undefined> {
-  const users = await getUsers();
-  return users.find((u) => u.id === id);
-}
-
 export async function getUserByEmail(
   email: string
 ): Promise<User | undefined> {
@@ -177,19 +174,7 @@ export async function getUserByEmail(
   return users.find((u) => u.email === email);
 }
 
-export async function getUserByQQ(qq: string): Promise<User | undefined> {
-  const users = await getUsers();
-  return users.find((u) => u.qq === qq);
-}
-
-export async function getUserByGithubId(
-  id: string
-): Promise<User | undefined> {
-  const users = await getUsers();
-  return users.find((u) => u.type === "github" && u.id === id);
-}
-
-/** Find any OAuth user (github/gitee/gitcode/qq) by prefixed id, e.g. "gh_123", "qq_ABC" */
+/** Find any OAuth user by prefixed id, e.g. "gh_123", "gitee_456", "email_a@b.com" */
 export async function getUserByOAuthId(id: string): Promise<User | undefined> {
   const users = await getUsers();
   return users.find((u) => u.type !== "guest" && u.id === id);

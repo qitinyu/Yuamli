@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { content, parentId, replyTo, pageId } = body;
+    const { content, parentId, replyTo, pageId, website } = body;
 
     if (!content || typeof content !== "string" || content.trim().length === 0) {
       return NextResponse.json(
@@ -56,6 +56,10 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // 个人网址：可选，去空格并限制长度（合法性在展示层再次校验）
+    const websiteRaw = typeof website === "string" ? website.trim() : "";
+    const websiteValue = websiteRaw ? websiteRaw.slice(0, 120) : undefined;
 
     const now = new Date().toISOString();
 
@@ -70,6 +74,7 @@ export async function POST(request: NextRequest) {
       },
       parentId: parentId || null,
       replyTo: replyTo ? { id: replyTo.id, name: replyTo.name } : null,
+      ...(websiteValue ? { website: websiteValue } : {}),
       isPinned: false,
       isFeatured: false,
       pageId: pageId || "",

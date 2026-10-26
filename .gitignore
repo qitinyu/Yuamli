@@ -1,9 +1,24 @@
+# dependencies
 node_modules/
+
+# build output
+.next/
+out/
 dist/
+build/
+
+# env files (secrets, never commit)
+.env
+.env.local
+.env*.local
+
+# runtime data (JSON storage backend)
 data/*.json
 !data/.gitkeep
-.env
+
+# tooling & caches
+.workbuddy/
+.vercel
+*.tsbuildinfo
 *.log
 .DS_Store
-*.tsbuildinfo
-bun.lock
