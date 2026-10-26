@@ -28,6 +28,11 @@ const DEFAULT_CONFIG = {
   footerHtml: "",
   replyPresets: [] as string[],
   commentPlaceholder: "写下你的留言...（支持 Markdown 语法）",
+  commentExpand: {
+    enabled: false,
+    count: "none",
+    depth: 6,
+  } as { enabled: boolean; count: "all" | "none" | "5"; depth: 2 | 4 | 6 },
 };
 
 // ==================== Vercel KV (Upstash Redis REST API) ====================

@@ -9,6 +9,10 @@ import CommentForm from "@/components/comment-system/CommentForm"
 import AuthModal from "@/components/comment-system/AuthModal"
 import { Loader2, RefreshCw } from "lucide-react"
 import { THEME_PRESETS, themeToStyle } from "@/lib/theme"
+import {
+  normalizeCommentExpand,
+  type CommentExpandConfig,
+} from "@/lib/comment-expand"
 
 function CommentPage() {
   const { setUser, setComments, setLoading, incrementRefresh, setAdminAuthorId } = useCommentStore()
@@ -17,6 +21,8 @@ function CommentPage() {
   const [footerHtml, setFooterHtml] = useState<string | null>(null)
   const [themeStyle, setThemeStyle] = useState<Record<string, string>>({})
   const [commentPlaceholder, setCommentPlaceholder] = useState<string>("")
+  // null = 配置还没加载完，CommentList 会等它到了再决定首屏展开数量
+  const [commentExpand, setCommentExpand] = useState<CommentExpandConfig | null>(null)
 
   const fetchSession = useCallback(async (): Promise<boolean> => {
     try {
@@ -35,6 +41,7 @@ function CommentPage() {
         const data = await res.json()
         if (data.footerHtml) setFooterHtml(data.footerHtml)
         if (data.commentPlaceholder) setCommentPlaceholder(data.commentPlaceholder)
+        setCommentExpand(normalizeCommentExpand(data.commentExpand))
         if (data.adminAuthorId) setAdminAuthorId(data.adminAuthorId)
         if (data.themePreset) {
           const preset = THEME_PRESETS.find(p => p.name === data.themePreset)
@@ -114,7 +121,7 @@ function CommentPage() {
             <CommentForm onSubmitted={() => {}} pageId={stablePageId} onRefresh={handleRefresh} placeholder={commentPlaceholder} />
           </section>
           <section>
-            <CommentList pageId={stablePageId} />
+            <CommentList pageId={stablePageId} expand={commentExpand} />
           </section>
         </div>
       </main>

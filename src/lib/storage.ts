@@ -1,4 +1,6 @@
 import { readData, writeData, DEFAULT_CONFIG } from "./adapter";
+import type { CommentExpandConfig } from "./comment-expand";
+import { normalizeCommentExpand } from "./comment-expand";
 
 export type OAuthType = "github" | "gitcode";
 export type UserType = OAuthType | "email" | "guest";
@@ -58,6 +60,8 @@ export interface SiteConfig {
   replyPresets?: string[];
   themePreset?: string;
   commentPlaceholder?: string;
+  /** 单页面评论展开策略（后台「评论设置」） */
+  commentExpand?: CommentExpandConfig;
   adminIdentity?: AdminIdentity | null;
 }
 
@@ -206,6 +210,8 @@ export async function getConfig(): Promise<SiteConfig> {
   if (!config.notifyTemplate) {
     config.notifyTemplate = DEFAULT_CONFIG.notifyTemplate;
   }
+  // 旧配置文件没有该字段时补全为默认值，避免前台拿到 undefined
+  config.commentExpand = normalizeCommentExpand(config.commentExpand);
   return config;
 }
 

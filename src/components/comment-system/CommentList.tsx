@@ -7,11 +7,28 @@ import { MessageSquare, ChevronDown, ChevronUp } from "lucide-react"
 import CommentItem from "./CommentItem"
 import CommentForm from "./CommentForm"
 import type { Comment } from "@/store/use-comment-store"
+import { resolveExpandLimit, resolveReplyLimit, type CommentExpandConfig } from "@/lib/comment-expand"
 
-export default function CommentList({ pageId = "" }: { pageId?: string }) {
-  const { comments, loading, setComments, setLoading, replyingTo, refreshKey } =
-    useCommentStore()
-  const inited = useRef(false)
+export default function CommentList({
+  pageId = "",
+  expand = null,
+}: {
+  pageId?: string
+  /** 后台「评论设置 → 单页面评论展开」；null 表示配置尚未加载 */
+  expand?: CommentExpandConfig | null
+}) {
+  const {
+    comments,
+    loading,
+    setComments,
+    setLoading,
+    replyingTo,
+    refreshKey,
+    collapsedComments,
+    toggleCollapse,
+  } = useCommentStore()
+  /** 首屏展开状态只应用一次，避免刷新 / 手动展开后被重置 */
+  const applied = useRef(false)
 
   const fetchComments = useCallback(async () => {
     setLoading(true)
@@ -20,16 +37,7 @@ export default function CommentList({ pageId = "" }: { pageId?: string }) {
       const res = await fetch(url)
       const data = await res.json()
       if (res.ok) {
-        const list = data.comments as Comment[]
-        setComments(list)
-        // On first load: collapse from the 2nd comment (index 1+), keep 1st visible
-        if (!inited.current && list.length > 1) {
-          const { toggleCollapse } = useCommentStore.getState()
-          for (let i = 1; i < list.length; i++) {
-            toggleCollapse(list[i].id)
-          }
-          inited.current = true
-        }
+        setComments(data.comments as Comment[])
       }
     } catch {
       // silently fail
@@ -42,8 +50,34 @@ export default function CommentList({ pageId = "" }: { pageId?: string }) {
     fetchComments()
   }, [fetchComments, refreshKey])
 
+  // 按后台配置决定首屏展开多少条主评论（等配置加载完再执行一次）
+  useEffect(() => {
+    if (applied.current) return
+    if (!expand || comments.length === 0) return
+    const limit = resolveExpandLimit(expand)
+    const { toggleCollapse, collapsedComments } = useCommentStore.getState()
+    comments.forEach((c, i) => {
+      if (i >= limit && !collapsedComments.has(c.id)) toggleCollapse(c.id)
+    })
+    applied.current = true
+  }, [expand, comments])
+
   const pinnedComments = comments.filter((c) => c.isPinned)
   const normalComments = comments.filter((c) => !c.isPinned)
+  const collapsedCount = comments.filter((c) => collapsedComments.has(c.id)).length
+  const replyLimit = expand ? resolveReplyLimit(expand) : 1
+
+  const toggleAll = () => {
+    if (collapsedCount > 0) {
+      comments.forEach((c) => {
+        if (collapsedComments.has(c.id)) toggleCollapse(c.id)
+      })
+    } else {
+      comments.forEach((c) => {
+        if (!collapsedComments.has(c.id)) toggleCollapse(c.id)
+      })
+    }
+  }
 
   if (loading && comments.length === 0) {
     return (
@@ -81,7 +115,12 @@ export default function CommentList({ pageId = "" }: { pageId?: string }) {
           </h3>
           <div className="space-y-5">
             {pinnedComments.map((c) => (
-              <CommentWrapper key={c.id} comment={c} onRefresh={fetchComments} />
+              <CommentWrapper
+                key={c.id}
+                comment={c}
+                onRefresh={fetchComments}
+                replyLimit={replyLimit}
+              />
             ))}
           </div>
         </div>
@@ -96,9 +135,36 @@ export default function CommentList({ pageId = "" }: { pageId?: string }) {
           )}
           <div className="space-y-5">
             {normalComments.map((c) => (
-              <CommentWrapper key={c.id} comment={c} onRefresh={fetchComments} />
+              <CommentWrapper
+                key={c.id}
+                comment={c}
+                onRefresh={fetchComments}
+                replyLimit={replyLimit}
+              />
             ))}
           </div>
+        </div>
+      )}
+
+      {/* 一键展开 / 收起全部 */}
+      {comments.length > 1 && (
+        <div className="flex justify-center pt-1">
+          <button
+            onClick={toggleAll}
+            className="flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/30 px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-[var(--theme-accent-border)] hover:text-[var(--theme-accent-text)]"
+          >
+            {collapsedCount > 0 ? (
+              <>
+                <ChevronDown className="h-3.5 w-3.5" />
+                展开全部留言 ({collapsedCount})
+              </>
+            ) : (
+              <>
+                <ChevronUp className="h-3.5 w-3.5" />
+                收起全部留言
+              </>
+            )}
+          </button>
         </div>
       )}
 
@@ -118,13 +184,15 @@ export default function CommentList({ pageId = "" }: { pageId?: string }) {
   )
 }
 
-/** Wraps a top-level comment with collapse/expand. First comment is always expanded. */
+/** Wraps a top-level comment with collapse/expand. */
 function CommentWrapper({
   comment,
   onRefresh,
+  replyLimit,
 }: {
   comment: Comment
   onRefresh: () => void
+  replyLimit: number
 }) {
   const { collapsedComments, toggleCollapse } = useCommentStore()
   const isCollapsed = collapsedComments.has(comment.id)
@@ -154,7 +222,7 @@ function CommentWrapper({
           收起
         </button>
       </div>
-      <CommentItem comment={comment} onRefresh={onRefresh} />
+      <CommentItem comment={comment} onRefresh={onRefresh} replyLimit={replyLimit} />
     </div>
   )
 }

@@ -30,8 +30,19 @@ import {
   Palette,
   UserCircle2,
   Github,
+  MessagesSquare,
+  SlidersHorizontal,
 } from "lucide-react"
 import { THEME_PRESETS, themeToStyle, type ThemePreset } from "@/lib/theme"
+import { Switch } from "@/components/ui/switch"
+import {
+  DEFAULT_COMMENT_EXPAND,
+  EXPAND_COUNT_OPTIONS,
+  EXPAND_DEPTH_OPTIONS,
+  normalizeCommentExpand,
+  type ExpandCount,
+  type ExpandDepth,
+} from "@/lib/comment-expand"
 
 const OAUTH_PROVIDER_LABELS: Record<string, string> = {
   github: "GitHub",
@@ -103,10 +114,15 @@ interface SiteConfig {
   replyPresets?: string[]
   themePreset?: string
   commentPlaceholder?: string
+  commentExpand?: {
+    enabled: boolean
+    count: ExpandCount
+    depth: ExpandDepth
+  }
   adminIdentity?: AdminIdentity | null
 }
 
-type Tab = "comments" | "users" | "settings" | "data" | "changelog"
+type Tab = "comments" | "users" | "review" | "settings" | "data" | "changelog"
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false)
@@ -175,6 +191,12 @@ export default function AdminPage() {
   const [commentPlaceholder, setCommentPlaceholder] = useState("")
   const [placeholderLoading, setPlaceholderLoading] = useState(false)
 
+  // Comment expand (评论设置 → 单页面评论展开)
+  const [expandEnabled, setExpandEnabled] = useState(DEFAULT_COMMENT_EXPAND.enabled)
+  const [expandCount, setExpandCount] = useState<ExpandCount>(DEFAULT_COMMENT_EXPAND.count)
+  const [expandDepth, setExpandDepth] = useState<ExpandDepth>(DEFAULT_COMMENT_EXPAND.depth)
+  const [expandLoading, setExpandLoading] = useState(false)
+
   // OAuth providers enabled on the server
   const [oauthProviders, setOauthProviders] = useState<string[]>([])
   const [identityLoading, setIdentityLoading] = useState(false)
@@ -215,6 +237,10 @@ export default function AdminPage() {
           setReplyPresets(data.config?.replyPresets || [])
           setThemePreset(data.config?.themePreset || "樱花粉")
           setCommentPlaceholder(data.config?.commentPlaceholder || "")
+          const ce = normalizeCommentExpand(data.config?.commentExpand)
+          setExpandEnabled(ce.enabled)
+          setExpandCount(ce.count)
+          setExpandDepth(ce.depth)
         }
       }
     } catch {
@@ -242,6 +268,10 @@ export default function AdminPage() {
           setReplyPresets(data.config?.replyPresets || [])
           setThemePreset(data.config?.themePreset || "樱花粉")
           setCommentPlaceholder(data.config?.commentPlaceholder || "")
+          const ce = normalizeCommentExpand(data.config?.commentExpand)
+          setExpandEnabled(ce.enabled)
+          setExpandCount(ce.count)
+          setExpandDepth(ce.depth)
           await fetchComments()
         }
       }
@@ -697,6 +727,30 @@ export default function AdminPage() {
     }
   }
 
+  // Comment expand save
+  const saveCommentExpand = async () => {
+    setExpandLoading(true)
+    try {
+      const res = await fetch("/api/admin/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          commentExpand: { enabled: expandEnabled, count: expandCount, depth: expandDepth },
+        }),
+      })
+      if (res.ok) {
+        toast.success("评论展开设置已保存，刷新前台即可生效")
+        await fetchAdminData()
+      } else {
+        toast.error("保存失败")
+      }
+    } catch {
+      toast.error("保存失败")
+    } finally {
+      setExpandLoading(false)
+    }
+  }
+
   // Theme
   const activeThemeStyle = (() => {
     const t = THEME_PRESETS.find(p => p.name === themePreset)
@@ -973,7 +1027,8 @@ export default function AdminPage() {
           {([
             { key: "comments", label: "留言管理", icon: MessageSquare },
             { key: "users", label: "用户列表", icon: Users },
-            { key: "settings", label: "设置", icon: Settings },
+            { key: "review", label: "评论设置", icon: MessagesSquare },
+            { key: "settings", label: "系统设置", icon: Settings },
             { key: "data", label: "数据备份", icon: Download },
             { key: "changelog", label: "更新日志", icon: FileText },
           ] as { key: Tab; label: string; icon: any }[]).map(tab => (
@@ -1346,6 +1401,170 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* Review tab — 评论设置 */}
+        {activeTab === "review" && (
+          <div className="max-w-xl space-y-4">
+            {/* 单页面评论展开 */}
+            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h3 className="font-medium text-sm text-stone-900 mb-1 flex items-center gap-2">
+                    <MessagesSquare className="h-5 w-5 text-[var(--theme-accent)]" />
+                    单页面评论展开
+                  </h3>
+                  <p className="text-xs text-stone-500 leading-relaxed">
+                    开启后，每个单独的留言区下方排列的留言都会自动按照下方规定展开一定数量
+                  </p>
+                </div>
+                <Switch
+                  checked={expandEnabled}
+                  onCheckedChange={setExpandEnabled}
+                  className="shrink-0 mt-0.5 data-[state=checked]:bg-[var(--theme-accent)]"
+                  aria-label="单页面评论展开总开关"
+                />
+              </div>
+
+              <div
+                className={`space-y-4 border-t border-stone-100 pt-4 transition-opacity ${
+                  expandEnabled ? "" : "opacity-50"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="text-sm text-stone-700">展开数量</div>
+                    <p className="text-xs text-stone-400 mt-0.5">首屏自动展开的留言条数</p>
+                  </div>
+                  <div className="relative shrink-0">
+                    <select
+                      value={expandCount}
+                      onChange={e => setExpandCount(e.target.value as ExpandCount)}
+                      disabled={!expandEnabled}
+                      className="w-full appearance-none pl-3 pr-8 py-1.5 rounded-lg border border-stone-300 text-sm bg-white focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      {EXPAND_COUNT_OPTIONS.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="text-sm text-stone-700">展开深度</div>
+                    <p className="text-xs text-stone-400 mt-0.5">单评论楼中楼层级</p>
+                  </div>
+                  <div className="relative shrink-0">
+                    <select
+                      value={expandDepth}
+                      onChange={e => setExpandDepth(Number(e.target.value) as ExpandDepth)}
+                      disabled={!expandEnabled}
+                      className="w-full appearance-none pl-3 pr-8 py-1.5 rounded-lg border border-stone-300 text-sm bg-white focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      {EXPAND_DEPTH_OPTIONS.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={saveCommentExpand}
+                disabled={expandLoading}
+                className="px-4 py-2 rounded-lg bg-[var(--theme-accent)] text-white text-sm font-medium hover:bg-[var(--theme-accent-hover)] transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {expandLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                保存设置
+              </button>
+            </div>
+
+            {/* Comment placeholder */}
+            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4">
+              <div>
+                <h3 className="font-medium text-sm text-stone-900 mb-1 flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5 text-[var(--theme-accent)]" />
+                  留言占位符
+                </h3>
+                <p className="text-xs text-stone-500">前台留言输入框的占位提示文字（用户已登录时显示）</p>
+              </div>
+              <input
+                type="text"
+                value={commentPlaceholder}
+                onChange={e => setCommentPlaceholder(e.target.value)}
+                placeholder="写下你的留言...（支持 Markdown 语法）"
+                className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
+              />
+              <p className="text-xs text-stone-400">
+                留空则显示默认提示「写下你的留言...（支持 Markdown 语法）」。仅在用户已登录时生效，未登录时显示登录提示。
+              </p>
+              <button
+                onClick={savePlaceholder}
+                disabled={placeholderLoading}
+                className="px-4 py-2 rounded-lg bg-[var(--theme-accent)] text-white text-sm font-medium hover:bg-[var(--theme-accent-hover)] transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {placeholderLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                保存占位符
+              </button>
+            </div>
+
+            {/* Reply presets */}
+            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4">
+              <div>
+                <h3 className="font-medium text-sm text-stone-900 mb-1 flex items-center gap-2">
+                  <Reply className="h-5 w-5 text-[var(--theme-accent)]" />
+                  预设回复模板
+                </h3>
+                <p className="text-xs text-stone-500">在留言管理中快速使用预设内容回复，如 &quot;这里不是无人区!&quot;</p>
+              </div>
+
+              <div className="space-y-2">
+                {replyPresets.length > 0 && replyPresets.map((preset, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="flex-1 px-3 py-1.5 rounded-lg border border-stone-200 text-sm text-stone-700 bg-stone-50">
+                      {preset}
+                    </span>
+                    <button
+                      onClick={() => removePreset(i)}
+                      className="text-stone-400 hover:text-red-500 transition-colors p-1"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newPreset}
+                  onChange={e => setNewPreset(e.target.value)}
+                  placeholder="输入新的预设回复内容"
+                  className="flex-1 px-3 py-1.5 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addPreset() } }}
+                />
+                <button
+                  onClick={addPreset}
+                  disabled={!newPreset.trim()}
+                  className="px-3 py-1.5 rounded-lg bg-stone-100 text-stone-700 text-sm hover:bg-stone-200 transition-colors disabled:opacity-40 flex items-center gap-1"
+                >
+                  <Plus className="h-3.5 w-3.5" /> 添加
+                </button>
+              </div>
+
+              <button
+                onClick={savePresets}
+                disabled={presetLoading}
+                className="px-4 py-2 rounded-lg bg-stone-800 text-white text-sm font-medium hover:bg-stone-900 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {presetLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                保存预设
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Settings tab */}
         {activeTab === "settings" && (
           <div className="max-w-xl space-y-4">
@@ -1631,89 +1850,6 @@ export default function AdminPage() {
               >
                 {footerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 保存页脚
-              </button>
-            </div>
-
-            {/* Comment placeholder */}
-            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4">
-              <div>
-                <h3 className="font-medium text-sm text-stone-900 mb-1 flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5 text-[var(--theme-accent)]" />
-                  留言占位符
-                </h3>
-                <p className="text-xs text-stone-500">前台留言输入框的占位提示文字（用户已登录时显示）</p>
-              </div>
-              <input
-                type="text"
-                value={commentPlaceholder}
-                onChange={e => setCommentPlaceholder(e.target.value)}
-                placeholder="写下你的留言...（支持 Markdown 语法）"
-                className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
-              />
-              <p className="text-xs text-stone-400">
-                留空则显示默认提示「写下你的留言...（支持 Markdown 语法）」。仅在用户已登录时生效，未登录时显示登录提示。
-              </p>
-              <button
-                onClick={savePlaceholder}
-                disabled={placeholderLoading}
-                className="px-4 py-2 rounded-lg bg-[var(--theme-accent)] text-white text-sm font-medium hover:bg-[var(--theme-accent-hover)] transition-colors disabled:opacity-50 flex items-center gap-2"
-              >
-                {placeholderLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                保存占位符
-              </button>
-            </div>
-
-            {/* Reply presets */}
-            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4">
-              <div>
-                <h3 className="font-medium text-sm text-stone-900 mb-1 flex items-center gap-2">
-                  <Reply className="h-5 w-5 text-[var(--theme-accent)]" />
-                  预设回复模板
-                </h3>
-                <p className="text-xs text-stone-500">在留言管理中快速使用预设内容回复，如 &quot;这里不是无人区!&quot;</p>
-              </div>
-
-              <div className="space-y-2">
-                {replyPresets.length > 0 && replyPresets.map((preset, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="flex-1 px-3 py-1.5 rounded-lg border border-stone-200 text-sm text-stone-700 bg-stone-50">
-                      {preset}
-                    </span>
-                    <button
-                      onClick={() => removePreset(i)}
-                      className="text-stone-400 hover:text-red-500 transition-colors p-1"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={newPreset}
-                  onChange={e => setNewPreset(e.target.value)}
-                  placeholder="输入新的预设回复内容"
-                  className="flex-1 px-3 py-1.5 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
-                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addPreset() } }}
-                />
-                <button
-                  onClick={addPreset}
-                  disabled={!newPreset.trim()}
-                  className="px-3 py-1.5 rounded-lg bg-stone-100 text-stone-700 text-sm hover:bg-stone-200 transition-colors disabled:opacity-40 flex items-center gap-1"
-                >
-                  <Plus className="h-3.5 w-3.5" /> 添加
-                </button>
-              </div>
-
-              <button
-                onClick={savePresets}
-                disabled={presetLoading}
-                className="px-4 py-2 rounded-lg bg-stone-800 text-white text-sm font-medium hover:bg-stone-900 transition-colors disabled:opacity-50 flex items-center gap-2"
-              >
-                {presetLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                保存预设
               </button>
             </div>
           </div>

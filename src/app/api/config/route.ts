@@ -12,6 +12,7 @@ export async function GET() {
       replyPresets: config.replyPresets || [],
       themePreset: config.themePreset || "",
       commentPlaceholder: config.commentPlaceholder || "",
+      commentExpand: config.commentExpand,
       // enabled OAuth providers (github/gitcode)
       oauthProviders: getEnabledProviders(),
       // email verification-code login is available when SMTP is configured

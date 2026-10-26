@@ -38,12 +38,15 @@ interface CommentItemProps {
   comment: Comment
   isReply?: boolean
   onRefresh: () => void
+  /** 每个楼自动展开的子评论条数；Infinity 表示全部展开（后台「展开深度」） */
+  replyLimit?: number
 }
 
 export default function CommentItem({
   comment,
   isReply = false,
   onRefresh,
+  replyLimit = 1,
 }: CommentItemProps) {
   const { user, isAdmin, adminAuthorId, setReplyingTo, incrementRefresh } =
     useCommentStore()
@@ -56,10 +59,15 @@ export default function CommentItem({
 
   const isAuthor = user?.id === comment.author.id
   const canModerate = isAdmin
-  const hasReplies = comment.replies && comment.replies.length > 0
-  const hiddenReplyCount = hasReplies
-    ? Math.max(0, comment.replies!.length - 1)
-    : 0
+  const totalReplies = comment.replies?.length ?? 0
+  const hasReplies = totalReplies > 0
+  /** 子评论超过「展开深度」时先折叠，点按钮再展开全部 */
+  const limitedByDepth = Number.isFinite(replyLimit) && totalReplies > replyLimit
+  const visibleReplies =
+    showAllReplies || !limitedByDepth
+      ? comment.replies ?? []
+      : (comment.replies ?? []).slice(0, replyLimit)
+  const hiddenReplyCount = totalReplies - visibleReplies.length
 
   const timeAgo = formatDistanceToNow(new Date(comment.createdAt), {
     addSuffix: true,
@@ -261,14 +269,21 @@ export default function CommentItem({
           </div>
 
           {/* Replies: recursive nesting — first reply visible, rest behind toggle */}
-          {hasReplies && comment.replies!.length > 0 && (
+          {hasReplies && (
             <>
-              {/* Always show first reply */}
-              <div className="mt-2">
-                <CommentItem comment={comment.replies![0]} isReply onRefresh={onRefresh} />
+              {/* 按「展开深度」自动展开：二级 2 条 / 四级 4 条 / 六级全部 */}
+              <div className="mt-2 space-y-0.5">
+                {visibleReplies.map((reply) => (
+                  <CommentItem
+                    key={reply.id}
+                    comment={reply}
+                    isReply
+                    onRefresh={onRefresh}
+                    replyLimit={replyLimit}
+                  />
+                ))}
               </div>
-              {/* Toggle for remaining replies */}
-              {hiddenReplyCount > 0 && (
+              {limitedByDepth && (
                 <div className="mt-2">
                   <Button
                     variant="ghost"
@@ -279,13 +294,6 @@ export default function CommentItem({
                     {showAllReplies ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                     {showAllReplies ? "收起回复" : `展开更多回复 (${hiddenReplyCount})`}
                   </Button>
-                  {showAllReplies && (
-                    <div className="space-y-0.5">
-                      {comment.replies!.slice(1).map((reply) => (
-                        <CommentItem key={reply.id} comment={reply} isReply onRefresh={onRefresh} />
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
             </>

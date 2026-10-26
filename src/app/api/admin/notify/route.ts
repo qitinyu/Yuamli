@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getConfig, updateConfig } from "@/lib/storage";
 import { isAdminAuthenticated } from "@/lib/auth";
 import { verifySmtp, sendNotifyEmail } from "@/lib/email";
+import { normalizeCommentExpand } from "@/lib/comment-expand";
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save settings
-    const { email, enabled, template, smtpHost, smtpPort, smtpUser, smtpPass, footerHtml, replyPresets, themePreset, commentPlaceholder } = body;
+    const { email, enabled, template, smtpHost, smtpPort, smtpUser, smtpPass, footerHtml, replyPresets, themePreset, commentPlaceholder, commentExpand } = body;
     const updates: Record<string, unknown> = {};
     if (email !== undefined) updates.adminEmail = email;
     if (enabled !== undefined && typeof enabled === "boolean") updates.notifyEnabled = enabled;
@@ -69,6 +70,9 @@ export async function POST(request: NextRequest) {
     if (replyPresets !== undefined && Array.isArray(replyPresets)) updates.replyPresets = replyPresets;
     if (themePreset !== undefined && typeof themePreset === "string") updates.themePreset = themePreset;
     if (commentPlaceholder !== undefined && typeof commentPlaceholder === "string") updates.commentPlaceholder = commentPlaceholder;
+    if (commentExpand !== undefined && typeof commentExpand === "object" && commentExpand) {
+      updates.commentExpand = normalizeCommentExpand(commentExpand);
+    }
 
     const newConfig = await updateConfig(updates as any);
 
