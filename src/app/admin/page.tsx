@@ -35,15 +35,15 @@ import { THEME_PRESETS, themeToStyle, type ThemePreset } from "@/lib/theme"
 
 const OAUTH_PROVIDER_LABELS: Record<string, string> = {
   github: "GitHub",
-  gitee: "Gitee",
+  gitcode: "GitCode",
   email: "邮箱",
 }
 
 function OAuthProviderIcon({ id }: { id: string }) {
   if (id === "github") return <Github className="h-4 w-4" />
   if (id === "email") return <Mail className="h-4 w-4" />
-  const color = id === "gitee" ? "#c71d23" : "#666"
-  const text = id === "gitee" ? "G" : id.slice(0, 2).toUpperCase()
+  const color = id === "gitcode" ? "#fe7300" : "#666"
+  const text = id === "gitcode" ? "GC" : id.slice(0, 2).toUpperCase()
   return (
     <span
       className="h-4 w-4 rounded-[4px] flex items-center justify-center text-[8px] font-bold text-white leading-none"
@@ -58,7 +58,7 @@ interface CommentAuthor {
   id: string
   name: string
   avatar: string
-  type: "github" | "gitee" | "email" | "guest"
+  type: "github" | "gitcode" | "email" | "guest"
 }
 
 interface Comment {
@@ -81,7 +81,7 @@ interface User {
   name: string
   email: string
   avatar: string
-  type: "github" | "gitee" | "email" | "guest"
+  type: "github" | "gitcode" | "email" | "guest"
   qq?: string
   createdAt: string
 }
@@ -90,7 +90,7 @@ interface AdminIdentity {
   id: string
   name: string
   avatar: string
-  type: "github" | "gitee" | "email"
+  type: "github" | "gitcode" | "email"
 }
 
 interface SiteConfig {

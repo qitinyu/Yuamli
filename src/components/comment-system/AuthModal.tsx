@@ -27,7 +27,7 @@ import {
 
 const PROVIDER_META: Record<string, { label: string; color: string; text: string }> = {
   github: { label: "GitHub", color: "#24292f", text: "GH" },
-  gitee: { label: "Gitee", color: "#c71d23", text: "G" },
+  gitcode: { label: "GitCode", color: "#fe7300", text: "GC" },
 }
 
 function ProviderBadge({ id }: { id: string }) {

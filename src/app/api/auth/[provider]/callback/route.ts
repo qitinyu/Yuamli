@@ -28,7 +28,7 @@ export async function GET(
   const state = searchParams.get("state") || "login";
   const origin = new URL(request.url).origin;
 
-  const providerLabel = provider === "github" ? "GitHub" : provider === "gitee" ? "Gitee" : provider;
+  const providerLabel = provider === "github" ? "GitHub" : provider === "gitcode" ? "GitCode" : provider;
 
   if (!isOAuthProvider(provider)) {
     return htmlResponse(messagePage("无效的登录方式", "/", 0));

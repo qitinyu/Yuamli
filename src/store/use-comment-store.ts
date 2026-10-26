@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 
-export type OAuthType = 'github' | 'gitee' | 'email';
+export type OAuthType = 'github' | 'gitcode' | 'email';
 export type UserType = OAuthType | 'guest';
 
 interface CommentAuthor {

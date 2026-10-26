@@ -7,7 +7,7 @@ import path from "path";
 const CHANGELOG_KEY = "changelog";
 
 const DEFAULT_CHANGELOG: Array<{ version: string; content: string }> = [
-  { version: "v1.0.9", content: "签名 Cookie 会话、scrypt 密码、移除 GitCode、邮箱并作游客登录、留言表单三区改版（表情 / 颜文字 / 个人网址）、清理无用依赖" },
+  { version: "v1.0.9", content: "签名 Cookie 会话、scrypt 密码、移除 Gitee、邮箱并作游客登录、留言表单三区改版（表情 / 颜文字 / 个人网址）、清理无用依赖" },
   { version: "v1.0.7", content: "更新日志独立文件编辑、主题色热切换、logo 修复、预设修复、按钮对齐优化" },
   { version: "v1.0.6", content: "后台评论新增单条「回复」按钮，可直接在后台回复零散留言" },
   { version: "v1.0.5", content: "独立 Footer 编辑、统一回复留言、评论区预设文本、Markdown 渲染优化、热刷新按钮、密码错误提示" },

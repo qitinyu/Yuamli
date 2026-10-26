@@ -1,6 +1,6 @@
 import { readData, writeData, DEFAULT_CONFIG } from "./adapter";
 
-export type OAuthType = "github" | "gitee";
+export type OAuthType = "github" | "gitcode";
 export type UserType = OAuthType | "email" | "guest";
 
 export interface AdminIdentity {
@@ -174,7 +174,7 @@ export async function getUserByEmail(
   return users.find((u) => u.email === email);
 }
 
-/** Find any OAuth user by prefixed id, e.g. "gh_123", "gitee_456", "email_a@b.com" */
+/** Find any OAuth user by prefixed id, e.g. "gh_123", "gc_456", "email_a@b.com" */
 export async function getUserByOAuthId(id: string): Promise<User | undefined> {
   const users = await getUsers();
   return users.find((u) => u.type !== "guest" && u.id === id);

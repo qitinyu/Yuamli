@@ -6,7 +6,7 @@
 
 ### 特性
 
-- **登录方式**：GitHub / Gitee OAuth 授权登录；邮箱 + 密码 + 验证码登录（邮箱即游客账号，验证码可重置密码）
+- **登录方式**：GitHub / GitCode OAuth 授权登录；邮箱 + 密码 + 验证码登录（邮箱即游客账号，验证码可重置密码）
 - **嵌套回复**：无限层级嵌套，递归树形渲染
 - **Markdown 支持**：留言内容支持 Markdown 基础语法，支持实时预览
 - **表情面板**：内置经典颜文字与常用表情，点击插入到光标位置
@@ -33,7 +33,7 @@
 ### V-1.0.9 (2026-10-26)
 
 - **安全**：会话与管理员 Cookie 改为 HMAC-SHA256 签名，附带过期时间；密码由弱哈希升级为 scrypt（兼容旧数据校验）
-- **移除**：GitCode 登录方式及相关代码
+- **移除**：Gitee 登录方式及相关代码
 - **调整**：邮箱登录并入「游客登录」，账号为邮箱 + 自定义密码 + 验证码；忘记密码时用验证码直接重置
 - **样式**：留言表单改为信息区 / 内容区 / 展示区三段式，展示区新增表情与颜文字面板、个人网址
 - **清理**：删除未使用的组件、接口与依赖，版本号统一为 v1.0.9
@@ -78,7 +78,7 @@ pnpm dev
 | `NEXT_PUBLIC_GITHUB_CLIENT_ID` | 使用 GitHub 登录时必填 | GitHub OAuth App 的 Client ID（前端公开） |
 | `GITHUB_CLIENT_ID` | 使用 GitHub 登录时必填 | 同上（后端使用） |
 | `GITHUB_CLIENT_SECRET` | 使用 GitHub 登录时必填 | GitHub OAuth App 的 Client Secret（保密） |
-| `GITEE_CLIENT_ID` / `GITEE_CLIENT_SECRET` | 使用 Gitee 登录时必填 | Gitee OAuth 应用凭据 |
+| `GITCODE_CLIENT_ID` / `GITCODE_CLIENT_SECRET` | 使用 GitCode 登录时必填 | GitCode OAuth 应用凭据 |
 | `KV_REST_API_URL` | 仅 Vercel 部署 | Vercel KV 连接地址，创建 KV 后自动注入，无需手动填写 |
 | `KV_REST_API_TOKEN` | 仅 Vercel 部署 | Vercel KV 认证 Token，创建 KV 后自动注入，无需手动填写 |
 
@@ -131,7 +131,7 @@ src/
 │   ├── admin/page.tsx              # 后台管理页
 │   └── api/
 │       ├── auth/
-│       │   ├── [provider]/route.ts          # OAuth 跳转（github / gitee）
+│       │   ├── [provider]/route.ts          # OAuth 跳转（github / gitcode）
 │       │   ├── [provider]/callback/route.ts # OAuth 回调
 │       │   ├── email/send/route.ts          # 发送登录验证码
 │       │   ├── guest/route.ts               # 邮箱游客：注册 / 登录 / 重置密码
@@ -155,7 +155,7 @@ src/
 │   ├── auth.ts                     # 签名 Cookie 会话、scrypt 密码、管理员鉴权
 │   ├── email.ts                    # SMTP 发信
 │   ├── emoji.ts                    # 表情 / 颜文字素材
-│   ├── oauth.ts                    # GitHub / Gitee OAuth
+│   ├── oauth.ts                    # GitHub / GitCode OAuth
 │   ├── storage.ts                  # 数据读写业务逻辑
 │   ├── theme.ts                    # 主题色预设
 │   └── utils.ts                    # 通用工具

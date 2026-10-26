@@ -166,10 +166,10 @@ export default function CommentItem({
                 GitHub
               </Badge>
             )}
-            {comment.author.type === "gitee" && (
-              <Badge variant="secondary" className="h-4 px-1.5 text-[10px] gap-0.5 text-[#c71d23]">
-                <span className="h-2.5 w-2.5 rounded-[2px] bg-[#c71d23] text-white text-[7px] font-bold flex items-center justify-center leading-none">G</span>
-                Gitee
+            {comment.author.type === "gitcode" && (
+              <Badge variant="secondary" className="h-4 px-1.5 text-[10px] gap-0.5 text-[#fe7300]">
+                <span className="h-2.5 w-2.5 rounded-[2px] bg-[#fe7300] text-white text-[7px] font-bold flex items-center justify-center leading-none">GC</span>
+                GitCode
               </Badge>
             )}
             {comment.author.type === "email" && (
