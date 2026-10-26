@@ -159,12 +159,13 @@ export default function CommentForm({
   )
 
   const initial = (user?.name || "").charAt(0).toUpperCase()
-  const account = user ? user.email || user.id : "0000000"
+  /** 账号信息（邮箱 / ID）不再占一行展示，仅在悬停时作为提示 */
+  const account = user ? user.email || user.id : "未登录"
 
   return (
     <div className="overflow-hidden rounded-xl border border-[var(--theme-accent-border)] bg-white shadow-sm">
       {/* ===== 上：信息区 ===== */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[var(--theme-accent-border)]/50 bg-[var(--theme-accent-50)] px-3 py-2.5">
+      <div className="flex items-center gap-2 border-b border-[var(--theme-accent-border)]/50 bg-[var(--theme-accent-50)] px-3 py-2.5">
         <Avatar className="h-8 w-8 shrink-0">
           <AvatarImage src={user?.avatar || ""} alt={user?.name || "游客"} />
           <AvatarFallback className="bg-[var(--theme-accent-light)] text-[var(--theme-accent-text)]">
@@ -176,16 +177,17 @@ export default function CommentForm({
           </AvatarFallback>
         </Avatar>
 
-        <div className="min-w-0">
-          <div className="truncate text-sm font-medium text-foreground">
-            {user ? user.name : "未登录"}
-          </div>
-          <div className="truncate text-[11px] text-muted-foreground">
-            {account}
-          </div>
+        {/* 单行展示昵称 / 未登录，账号信息收进 title 提示，省掉第二行 */}
+        <div
+          className={`min-w-0 flex-1 truncate text-sm ${
+            user ? "font-medium text-foreground" : "text-muted-foreground"
+          }`}
+          title={account}
+        >
+          {user ? user.name : "未登录"}
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <div className="flex items-center gap-1 rounded-md border border-[var(--theme-accent-border)]/70 bg-white px-2 py-1">
             <Link2 className="h-3 w-3 shrink-0 text-muted-foreground" />
             <input
@@ -195,7 +197,7 @@ export default function CommentForm({
               maxLength={120}
               disabled={!user}
               aria-label="个人网址"
-              className="w-24 bg-transparent text-[11px] outline-none placeholder:text-muted-foreground/70 disabled:cursor-not-allowed sm:w-32"
+              className="w-20 bg-transparent text-[11px] outline-none placeholder:text-muted-foreground/70 disabled:cursor-not-allowed sm:w-32"
             />
           </div>
 
