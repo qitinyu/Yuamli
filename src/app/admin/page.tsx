@@ -991,16 +991,38 @@ export default function AdminPage() {
   // ===== Admin dashboard =====
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-stone-50 to-white" style={activeThemeStyle as React.CSSProperties}>
-      {/* Header */}
+      {/* Header + Tabs (合并为一栏) */}
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
+        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <div className="w-8 h-8 rounded-lg bg-[var(--theme-accent)] flex items-center justify-center">
               <Shield className="h-4 w-4 text-white" />
             </div>
-            <h1 className="text-base font-semibold tracking-tight">后台管理</h1>
+            <h1 className="text-base font-semibold tracking-tight hidden md:block">后台管理</h1>
           </div>
-          <div className="flex items-center gap-1 -mr-1">
+          <nav className="flex items-center gap-1 overflow-x-auto flex-1 min-w-0">
+            {([
+              { key: "comments", label: "留言管理", icon: MessageSquare },
+              { key: "users", label: "用户列表", icon: Users },
+              { key: "changelog", label: "更新日志", icon: FileText },
+              { key: "review", label: "评论设置", icon: MessagesSquare },
+              { key: "settings", label: "系统设置", icon: Settings },
+            ] as { key: Tab; label: string; icon: any }[]).map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => { setActiveTab(tab.key); if (tab.key === "changelog") fetchChangelog() }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                  activeTab === tab.key
+                    ? "bg-[var(--theme-accent-50)] text-[var(--theme-accent-text)]"
+                    : "text-stone-500 hover:text-stone-700 hover:bg-stone-100"
+                }`}
+              >
+                <tab.icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+          <div className="flex items-center gap-1 shrink-0 -mr-1">
             <button
               onClick={handleRefresh}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm text-stone-600 hover:bg-stone-100 transition-colors"
@@ -1019,34 +1041,8 @@ export default function AdminPage() {
         </div>
       </header>
 
-      {/* Tabs */}
-      <div className="border-b bg-white/60 backdrop-blur-sm">
-        <div className="max-w-3xl mx-auto px-4 flex gap-1 overflow-x-auto">
-          {([
-            { key: "comments", label: "留言管理", icon: MessageSquare },
-            { key: "users", label: "用户列表", icon: Users },
-            { key: "changelog", label: "更新日志", icon: FileText },
-            { key: "review", label: "评论设置", icon: MessagesSquare },
-            { key: "settings", label: "系统设置", icon: Settings },
-          ] as { key: Tab; label: string; icon: any }[]).map(tab => (
-            <button
-              key={tab.key}
-              onClick={() => { setActiveTab(tab.key); if (tab.key === "changelog") fetchChangelog() }}
-              className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
-                activeTab === tab.key
-                  ? "border-[var(--theme-accent)] text-[var(--theme-accent-text)]"
-                  : "border-transparent text-stone-500 hover:text-stone-700"
-              }`}
-            >
-              <tab.icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Content */}
-      <main className={`flex-1 w-full px-4 py-6 mx-auto ${activeTab === "review" || activeTab === "settings" ? "max-w-6xl" : "max-w-3xl"}`}>
+      <main className="flex-1 w-full px-4 py-6 mx-auto max-w-6xl">
         {/* Comments tab */}
         {activeTab === "comments" && (
           <div>
@@ -1276,7 +1272,7 @@ export default function AdminPage() {
                 <p className="text-sm">暂无留言</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
                 {comments
                   .filter(c => {
                     if (!pageIdFilter) return true
@@ -1363,45 +1359,47 @@ export default function AdminPage() {
         {/* Users tab */}
         {activeTab === "users" && (
           <div>
-            <div className="bg-white rounded-lg border border-stone-200 overflow-hidden">
-              <div className="px-4 py-3 border-b border-stone-200">
-                <h3 className="font-medium text-sm text-stone-900">注册用户 ({users.length})</h3>
-              </div>
-              {users.length === 0 ? (
-                <div className="text-center py-12 text-stone-400">
-                  <Users className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">暂无注册用户</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-stone-100">
-                  {users.map(u => (
-                    <div key={u.id} className="px-4 py-3 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center text-xs font-medium text-stone-600">
-                        {u.name.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm text-stone-900">{u.name}</span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">
-                            {u.type === "guest" ? "游客" : (OAUTH_PROVIDER_LABELS[u.type] || u.type)}
-                          </span>
-                        </div>
-                        <p className="text-xs text-stone-400">
-                          {u.email || u.qq || "无邮箱"} · {formatDate(u.createdAt)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="flex items-center gap-2 mb-4">
+              <Users className="h-5 w-5 text-[var(--theme-accent)]" />
+              <h3 className="font-medium text-sm text-stone-900">注册用户 ({users.length})</h3>
             </div>
+            {users.length === 0 ? (
+              <div className="text-center py-20 text-stone-400">
+                <Users className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">暂无注册用户</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {users.map(u => (
+                  <div key={u.id} className="bg-white rounded-lg border border-stone-200 p-4 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-stone-200 flex items-center justify-center text-sm font-medium text-stone-600 shrink-0">
+                      {u.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm text-stone-900 truncate">{u.name}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 shrink-0">
+                          {u.type === "guest" ? "游客" : (OAUTH_PROVIDER_LABELS[u.type] || u.type)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-stone-400 truncate">
+                        {u.email || u.qq || "无邮箱"}
+                      </p>
+                      <p className="text-xs text-stone-400">
+                        {formatDate(u.createdAt)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
         {/* Review tab — 评论设置 */}
         {activeTab === "review" && (
           <div className="w-full">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* 单页面评论展开 */}
             <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4">
               <div className="flex items-start justify-between gap-4">
@@ -1508,7 +1506,7 @@ export default function AdminPage() {
             </div>
 
             {/* Reply presets */}
-            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4">
+            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4 md:col-span-2">
               <div>
                 <h3 className="font-medium text-sm text-stone-900 mb-1 flex items-center gap-2">
                   <Reply className="h-5 w-5 text-[var(--theme-accent)]" />
@@ -1567,7 +1565,7 @@ export default function AdminPage() {
         {/* Settings tab */}
         {activeTab === "settings" && (
           <div className="w-full">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Theme color */}
             <div className="bg-white rounded-lg border border-stone-200 p-6">
               <div className="flex items-center gap-2 mb-4">
@@ -1710,8 +1708,75 @@ export default function AdminPage() {
               </form>
             </div>
 
+            {/* Footer editor */}
+            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4">
+              <div>
+                <h3 className="font-medium text-sm text-stone-900 mb-1 flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-[var(--theme-accent)]" />
+                  页脚自定义
+                </h3>
+                <p className="text-xs text-stone-500">自定义前台和后台页脚内容，支持 HTML</p>
+              </div>
+              <textarea
+                value={footerHtml}
+                onChange={e => setFooterHtml(e.target.value)}
+                placeholder={`<p class="text-xs text-stone-400">Powered by <span class="font-medium">Yuamli</span> v1.1.1</p>`}
+                rows={3}
+                className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm font-mono"
+              />
+              <p className="text-xs text-stone-400">
+                留空则显示默认页脚。修改后同时影响前台留言页和后台管理页。
+              </p>
+              <button
+                onClick={saveFooter}
+                disabled={footerLoading}
+                className="px-4 py-2 rounded-lg bg-[var(--theme-accent)] text-white text-sm font-medium hover:bg-[var(--theme-accent-hover)] transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {footerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                保存页脚
+              </button>
+            </div>
+
+            {/* 导出数据 */}
+            <div className="bg-white rounded-lg border border-stone-200 p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-lg bg-[var(--theme-accent-50)] flex items-center justify-center">
+                  <Download className="h-5 w-5 text-[var(--theme-accent)]" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-sm text-stone-900">导出数据</h3>
+                  <p className="text-xs text-stone-500">将所有留言、用户和配置导出为 JSON 文件</p>
+                </div>
+              </div>
+              <button
+                onClick={handleExport}
+                className="px-4 py-2 rounded-lg bg-[var(--theme-accent)] text-white text-sm font-medium hover:bg-[var(--theme-accent-hover)] transition-colors flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                导出数据
+              </button>
+            </div>
+
+            {/* 导入数据 */}
+            <div className="bg-white rounded-lg border border-stone-200 p-6">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-lg bg-stone-100 flex items-center justify-center">
+                  <Upload className="h-5 w-5 text-stone-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-sm text-stone-900">导入数据</h3>
+                  <p className="text-xs text-stone-500">从备份文件恢复数据（支持合并和覆盖）</p>
+                </div>
+              </div>
+              <label className="px-4 py-2 rounded-lg bg-stone-800 text-white text-sm font-medium hover:bg-stone-900 transition-colors flex items-center gap-2 w-fit cursor-pointer">
+                <Upload className="h-4 w-4" />
+                选择文件导入
+                <input type="file" accept=".json" onChange={handleImport} className="hidden" />
+              </label>
+            </div>
+
             {/* Notification settings */}
-            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-5">
+            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-5 md:col-span-2">
               <div>
                 <h3 className="font-medium text-sm text-stone-900 mb-1">邮件设置</h3>
                 <p className="text-xs text-stone-500">配置 SMTP 发信服务，用于新留言通知与前台「邮箱验证码登录」</p>
@@ -1826,127 +1891,44 @@ export default function AdminPage() {
                 </button>
               </div>
             </div>
-
-            {/* Footer editor */}
-            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4">
-              <div>
-                <h3 className="font-medium text-sm text-stone-900 mb-1 flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-[var(--theme-accent)]" />
-                  页脚自定义
-                </h3>
-                <p className="text-xs text-stone-500">自定义前台和后台页脚内容，支持 HTML</p>
-              </div>
-              <textarea
-                value={footerHtml}
-                onChange={e => setFooterHtml(e.target.value)}
-                placeholder={`<p class="text-xs text-stone-400">Powered by <span class="font-medium">Yuamli</span> v1.1.1</p>`}
-                rows={3}
-                className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm font-mono"
-              />
-              <p className="text-xs text-stone-400">
-                留空则显示默认页脚。修改后同时影响前台留言页和后台管理页。
-              </p>
-              <button
-                onClick={saveFooter}
-                disabled={footerLoading}
-                className="px-4 py-2 rounded-lg bg-[var(--theme-accent)] text-white text-sm font-medium hover:bg-[var(--theme-accent-hover)] transition-colors disabled:opacity-50 flex items-center gap-2"
-              >
-                {footerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                保存页脚
-              </button>
-            </div>
-
-            {/* 导出数据 */}
-            <div className="bg-white rounded-lg border border-stone-200 p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-[var(--theme-accent-50)] flex items-center justify-center">
-                  <Download className="h-5 w-5 text-[var(--theme-accent)]" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-sm text-stone-900">导出数据</h3>
-                  <p className="text-xs text-stone-500">将所有留言、用户和配置导出为 JSON 文件</p>
-                </div>
-              </div>
-              <button
-                onClick={handleExport}
-                className="px-4 py-2 rounded-lg bg-[var(--theme-accent)] text-white text-sm font-medium hover:bg-[var(--theme-accent-hover)] transition-colors flex items-center gap-2"
-              >
-                <Download className="h-4 w-4" />
-                导出数据
-              </button>
-            </div>
-
-            {/* 导入数据 */}
-            <div className="bg-white rounded-lg border border-stone-200 p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-stone-100 flex items-center justify-center">
-                  <Upload className="h-5 w-5 text-stone-600" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-sm text-stone-900">导入数据</h3>
-                  <p className="text-xs text-stone-500">从备份文件恢复数据（支持合并和覆盖）</p>
-                </div>
-              </div>
-              <label className="px-4 py-2 rounded-lg bg-stone-800 text-white text-sm font-medium hover:bg-stone-900 transition-colors flex items-center gap-2 w-fit cursor-pointer">
-                <Upload className="h-4 w-4" />
-                选择文件导入
-                <input type="file" accept=".json" onChange={handleImport} className="hidden" />
-              </label>
-            </div>
             </div>
           </div>
         )}
 
         {activeTab === "changelog" && (
-          <div className="max-w-3xl space-y-4">
+          <div className="space-y-4">
             {changelogLoading ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="h-6 w-6 animate-spin text-stone-400" />
               </div>
             ) : (
               <>
-                {/* Editable table */}
-                <div className="bg-white rounded-lg border border-stone-200 overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-stone-50 border-b border-stone-200">
-                        <th className="text-left px-4 py-3 font-medium text-stone-600 w-32">版本</th>
-                        <th className="text-left px-4 py-3 font-medium text-stone-600">更新内容</th>
-                        <th className="w-12"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-stone-100">
-                      {changelog.map((log, i) => (
-                        <tr key={i} className={i === 0 ? "bg-[var(--theme-accent-50)]/30" : ""}>
-                          <td className="px-4 py-2">
-                            <input
-                              value={log.version}
-                              onChange={e => updateChangelogItem(i, "version", e.target.value)}
-                              className={`w-full px-2 py-1 rounded border border-stone-200 text-sm outline-none focus:border-[var(--theme-accent)] font-mono ${i === 0 ? "text-[var(--theme-accent-text)] font-medium" : "text-stone-500"}`}
-                            />
-                          </td>
-                          <td className="px-4 py-2">
-                            <input
-                              value={log.content}
-                              onChange={e => updateChangelogItem(i, "content", e.target.value)}
-                              className={`w-full px-2 py-1 rounded border border-stone-200 text-sm outline-none focus:border-[var(--theme-accent)] ${i === 0 ? "text-stone-700" : "text-stone-600"}`}
-                            />
-                          </td>
-                          <td className="px-2 py-2">
-                            <button onClick={() => removeChangelog(i)} className="text-red-400 hover:text-red-600">
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {changelog.length === 0 && (
-                        <tr>
-                          <td colSpan={3} className="px-4 py-8 text-center text-xs text-stone-400">暂无更新日志</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                {/* Editable cards */}
+                {changelog.length === 0 ? (
+                  <div className="bg-white rounded-lg border border-stone-200 px-4 py-8 text-center text-xs text-stone-400">暂无更新日志</div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+                    {changelog.map((log, i) => (
+                      <div key={i} className={`bg-white rounded-lg border border-stone-200 p-4 space-y-3 ${i === 0 ? "bg-[var(--theme-accent-50)]/30" : ""}`}>
+                        <div className="flex items-center gap-2">
+                          <input
+                            value={log.version}
+                            onChange={e => updateChangelogItem(i, "version", e.target.value)}
+                            className={`flex-1 px-2 py-1 rounded border border-stone-200 text-sm outline-none focus:border-[var(--theme-accent)] font-mono ${i === 0 ? "text-[var(--theme-accent-text)] font-medium" : "text-stone-500"}`}
+                          />
+                          <button onClick={() => removeChangelog(i)} className="text-red-400 hover:text-red-600 shrink-0">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <input
+                          value={log.content}
+                          onChange={e => updateChangelogItem(i, "content", e.target.value)}
+                          className={`w-full px-2 py-1 rounded border border-stone-200 text-sm outline-none focus:border-[var(--theme-accent)] ${i === 0 ? "text-stone-700" : "text-stone-600"}`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 {/* Add new entry */}
                 <div className="bg-white rounded-lg border border-stone-200 p-4 flex items-end gap-3">
