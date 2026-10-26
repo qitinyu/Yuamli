@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAdminAuthenticated } from "@/lib/auth";
+import { isAdminAuthenticated, adminUnauthorized } from "@/lib/auth";
 import { readData, writeData } from "@/lib/adapter";
 import fs from "fs";
 import path from "path";
@@ -7,6 +7,7 @@ import path from "path";
 const CHANGELOG_KEY = "changelog";
 
 const DEFAULT_CHANGELOG: Array<{ version: string; content: string }> = [
+  { version: "v1.1.1", content: "后台导航重排、评论设置与系统设置改为双列网格卡片、数据备份并入系统设置、修复 Serverless 环境保存失败并优化 SMTP 配置报错" },
   { version: "v1.1.0", content: "签名 Cookie 会话、scrypt 密码、登录渠道调整为 GitHub + GitCode（移除 Gitee）、邮箱并入游客登录、留言表单三区改版（表情 / 颜文字 / 个人网址）、全站图标更新" },
   { version: "v1.0.7", content: "更新日志独立文件编辑、主题色热切换、logo 修复、预设修复、按钮对齐优化" },
   { version: "v1.0.6", content: "后台评论新增单条「回复」按钮，可直接在后台回复零散留言" },
@@ -45,12 +46,7 @@ async function readChangelog(): Promise<Array<{ version: string; content: string
 export async function GET() {
   try {
     const admin = await isAdminAuthenticated();
-    if (!admin) {
-      return NextResponse.json(
-        { ok: false, message: "Admin authentication required" },
-        { status: 403 }
-      );
-    }
+    if (!admin) return adminUnauthorized();
 
     const changelog = await readChangelog();
     return NextResponse.json({ changelog });
@@ -66,12 +62,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const admin = await isAdminAuthenticated();
-    if (!admin) {
-      return NextResponse.json(
-        { ok: false, message: "Admin authentication required" },
-        { status: 403 }
-      );
-    }
+    if (!admin) return adminUnauthorized();
 
     const body = await request.json();
     const { changelog } = body;

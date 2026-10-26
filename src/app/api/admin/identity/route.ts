@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAdminAuthenticated } from "@/lib/auth";
+import { isAdminAuthenticated, adminUnauthorized } from "@/lib/auth";
 import { getConfig, updateConfig } from "@/lib/storage";
 
 /**
@@ -12,12 +12,7 @@ import { getConfig, updateConfig } from "@/lib/storage";
 export async function POST(request: NextRequest) {
   try {
     const admin = await isAdminAuthenticated();
-    if (!admin) {
-      return NextResponse.json(
-        { ok: false, message: "Admin authentication required" },
-        { status: 403 }
-      );
-    }
+    if (!admin) return adminUnauthorized();
 
     const body = await request.json();
     if (body.action !== "unbind") {

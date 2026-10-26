@@ -25,20 +25,57 @@ const ADMIN_TTL = 60 * 60 * 2; // 2 小时
  */
 const FALLBACK_SECRET = randomBytes(32).toString("hex");
 
-function getSecret(): string {
+function configuredSecret(): string {
   const secret =
     process.env.AUTH_SECRET ||
     process.env.SESSION_SECRET ||
     process.env.NEXTAUTH_SECRET ||
     "";
-  if (secret && secret.length >= 16) return secret;
+  return secret.length >= 16 ? secret : "";
+}
+
+/**
+ * 服务端是否配置了稳定的签名密钥。
+ *
+ * 未配置时只能退回到「进程内随机密钥」，这在 Serverless（Vercel）上是致命的：
+ * 每次请求可能落在不同实例，登录时签发的 Cookie 到下一个实例就验签失败，
+ * 表现为「能登录成功、但之后所有请求都 403」。所以必须能识别出来并明确告知。
+ */
+export function isAuthSecretStable(): boolean {
+  return configuredSecret() !== "";
+}
+
+function getSecret(): string {
+  const secret = configuredSecret();
+  if (secret) return secret;
 
   if (process.env.NODE_ENV === "production") {
     console.warn(
-      "[auth] 未配置 AUTH_SECRET（或长度不足 16），正在使用进程内随机密钥：重启后所有登录态失效。请在环境变量中设置 AUTH_SECRET。"
+      "[auth] 未配置 AUTH_SECRET（或长度不足 16），正在使用进程内随机密钥：登录态无法在多实例间共享，" +
+        "Vercel 等 Serverless 环境会出现「登录成功但所有后台操作 403」。请务必配置 AUTH_SECRET。"
     );
   }
   return FALLBACK_SECRET;
+}
+
+/** 生产环境缺少 AUTH_SECRET 时给出的可执行提示 */
+export const MISSING_SECRET_MESSAGE =
+  "服务端未配置 AUTH_SECRET，管理员登录态无法校验（Serverless 环境下每次请求的签名密钥都不同）。" +
+  "请在部署平台的环境变量中添加 AUTH_SECRET（16 位以上随机字符串，可用 openssl rand -hex 32 生成），" +
+  "并确保 Production 与 Preview 环境都配置，然后重新部署。";
+
+/**
+ * 统一的「管理员未通过鉴权」响应。
+ * 缺密钥时返回 500 + 明确原因，避免用 403 掩盖真实的配置问题。
+ */
+export function adminUnauthorized(): NextResponse {
+  if (process.env.NODE_ENV === "production" && !isAuthSecretStable()) {
+    return NextResponse.json({ ok: false, message: MISSING_SECRET_MESSAGE }, { status: 500 });
+  }
+  return NextResponse.json(
+    { ok: false, message: "管理员登录状态已失效，请重新登录" },
+    { status: 403 }
+  );
 }
 
 // ==================== Token 签名 / 校验 ====================

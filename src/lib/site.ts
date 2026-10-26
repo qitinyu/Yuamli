@@ -4,4 +4,4 @@
 export const SITE_ICON = "https://img.yqamm.top/MIHOYO/950cb3bf.webp";
 
 /** 当前版本号 */
-export const SITE_VERSION = "1.1.0";
+export const SITE_VERSION = "1.1.1";

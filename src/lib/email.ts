@@ -14,6 +14,13 @@ export interface SmtpConfig {
   smtpPass: string;     // QQ mail authorization code (16-digit)
 }
 
+/** 接口回显授权码时使用的掩码，收到该值代表「前端没有改动」 */
+export const SMTP_PASS_MASK = "••••••••••••";
+
+export function isMaskedPass(value: unknown): boolean {
+  return typeof value !== "string" || value.length === 0 || /^[•*]+$/.test(value);
+}
+
 /**
  * Create a nodemailer transporter from SMTP config
  */
@@ -27,7 +34,37 @@ export function createTransporter(config: SmtpConfig) {
       user: config.smtpUser,
       pass: config.smtpPass,
     },
+    // 连不上时快速失败，避免前端一直转圈
+    connectionTimeout: 12000,
+    greetingTimeout: 12000,
+    socketTimeout: 20000,
   });
+}
+
+/** 把 nodemailer 的原始报错翻译成可执行的建议 */
+function explainSmtpError(err: any): string {
+  const raw = err?.message || String(err);
+  const code = String(err?.code || "");
+
+  if (code === "EAUTH" || /535|Invalid login|authentication/i.test(raw)) {
+    return (
+      `${raw}\n建议检查：① 是否填的是「SMTP 授权码」而不是邮箱登录密码；` +
+      `② 邮箱设置里是否已开启 POP3/SMTP 服务；③ 授权码是否已过期（重新生成后需重新填写）`
+    );
+  }
+  if (code === "ETIMEDOUT" || code === "ECONNREFUSED" || code === "ECONNRESET" || code === "ESOCKET") {
+    return (
+      `${raw}\n建议检查：① 服务器地址是否正确（QQ 邮箱为 smtp.qq.com）；` +
+      `② 端口 465（SSL）不通时改用 587（STARTTLS）；③ 部署平台是否封锁了 SMTP 出站端口`
+    );
+  }
+  if (code === "ENOTFOUND" || code === "EDNS") {
+    return `${raw}\n建议检查：SMTP 服务器域名是否填写正确`;
+  }
+  if (code === "EENVELOPE") {
+    return `${raw}\n建议检查：收件邮箱地址是否有效`;
+  }
+  return raw;
 }
 
 /**
@@ -39,7 +76,7 @@ export async function verifySmtp(config: SmtpConfig): Promise<{ ok: boolean; mes
     await transporter.verify();
     return { ok: true, message: "SMTP 连接成功" };
   } catch (err: any) {
-    return { ok: false, message: `SMTP 连接失败: ${err.message || String(err)}` };
+    return { ok: false, message: `SMTP 连接失败: ${explainSmtpError(err)}` };
   }
 }
 
@@ -65,7 +102,7 @@ export async function sendNotifyEmail(params: {
     return { ok: true, message: "邮件发送成功" };
   } catch (err: any) {
     console.error("[email] Send failed:", err.message || err);
-    return { ok: false, message: `邮件发送失败: ${err.message || String(err)}` };
+    return { ok: false, message: `邮件发送失败: ${explainSmtpError(err)}` };
   }
 }
 

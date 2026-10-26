@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAdminAuthenticated } from "@/lib/auth";
+import { isAdminAuthenticated, adminUnauthorized } from "@/lib/auth";
 import {
   getComments,
   addComment,
@@ -26,12 +26,7 @@ async function getAdminAuthor(): Promise<CommentAuthor> {
 export async function GET() {
   try {
     const admin = await isAdminAuthenticated();
-    if (!admin) {
-      return NextResponse.json(
-        { ok: false, message: "Admin authentication required" },
-        { status: 403 }
-      );
-    }
+    if (!admin) return adminUnauthorized();
 
     const comments = await getComments();
     comments.sort(
@@ -51,12 +46,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const admin = await isAdminAuthenticated();
-    if (!admin) {
-      return NextResponse.json(
-        { ok: false, message: "Admin authentication required" },
-        { status: 403 }
-      );
-    }
+    if (!admin) return adminUnauthorized();
 
     const body = await request.json();
     const { action, ids } = body;

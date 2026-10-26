@@ -2,7 +2,7 @@
 
 > 轻量级留言系统 —— 支持第三方 OAuth 登录、邮箱游客登录、嵌套回复、Markdown 渲染、后台管理与数据备份
 
-当前版本：**v1.1.0**
+当前版本：**v1.1.1**
 
 ### 特性
 
@@ -29,6 +29,12 @@
 | 部署 | Vercel（推荐）/ 自建服务器 |
 
 ## 更新日志
+
+### V-1.1.1 (2026-10-27)
+
+- **后台导航**：重排为「留言管理 / 用户列表 / 更新日志 / 评论设置 / 系统设置」，数据备份并入系统设置，不再单独入口
+- **布局**：评论设置与系统设置改为双列网格卡片，大屏下全宽铺满
+- **修复**：Vercel 等 Serverless 环境下「后台能登录但保存全部失败」的问题——缺少 `AUTH_SECRET` 时给出明确提示；SMTP 授权码不再明文回传；各类保存失败均返回可执行的错误信息
 
 ### V-1.1.0 (2026-10-26)
 
@@ -110,6 +116,8 @@ pnpm dev
 1. 将代码推送到 GitHub 仓库
 2. 在 [Vercel](https://vercel.com) 导入该仓库
 3. 在 **Settings → Environment Variables** 中添加 `AUTH_SECRET` 与 OAuth 相关变量
+   - ⚠️ **务必给 Production 和 Preview 都勾选**，否则预览域名下会出现「能登录、但保存全部失败」
+   - 添加/修改变量后必须 **Redeploy** 才会生效
 4. 在 **Storage** 标签中创建 **KV (Redis)** 实例，区域建议选 Singapore
 5. 创建完成后 Vercel 会自动注入 `KV_REST_API_URL` 和 `KV_REST_API_TOKEN`
 6. 更新 GitHub OAuth App 的 callback URL 为 Vercel 分配的域名
@@ -120,6 +128,17 @@ pnpm dev
 1. `pnpm build && pnpm start` 或使用 Caddy / Nginx 反向代理
 2. 项目根目录附带了 `Caddyfile` 可直接使用
 3. 数据存储在 `data/` 目录下的 JSON 文件中
+
+#### 常见故障：后台「保存失败」
+
+后台所有保存都失败时，按提示文案对号入座：
+
+| 现象 | 原因 | 处理 |
+| --- | --- | --- |
+| 提示「管理员登录状态已失效」或「未配置 AUTH_SECRET」 | Serverless 环境没有稳定的签名密钥，Cookie 跨实例验签失败 | 在环境变量中配置 `AUTH_SECRET`（16 位以上随机串），Production 与 Preview 都要配，然后重新部署 |
+| 提示「配置写入失败」 | 文件系统只读（Vercel）或 `data/` 无写权限 | Vercel：在 Storage 创建 KV 并关联项目后重新部署；自建：`chown`/`chmod` 给运行用户写权限 |
+| 提示「SMTP 连接失败: 535 …」 | 授权码错误 / 未开启 SMTP 服务 / 授权码过期 | 用邮箱的「SMTP 授权码」而非登录密码；在邮箱设置中开启 POP3/SMTP 服务 |
+| 提示「SMTP 连接失败: ETIMEDOUT」 | 端口被封锁 | 把端口从 465 改成 587 再试 |
 
 ### 项目结构
 

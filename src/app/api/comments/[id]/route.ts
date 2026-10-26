@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCommentById, updateComment, deleteComment } from "@/lib/storage";
-import { getSession, isAdminAuthenticated } from "@/lib/auth";
+import { getSession, isAdminAuthenticated, adminUnauthorized } from "@/lib/auth";
 
 export async function PUT(
   request: NextRequest,
@@ -44,12 +44,7 @@ export async function PUT(
 
     if (isPinned !== undefined || isFeatured !== undefined) {
       const admin = await isAdminAuthenticated();
-      if (!admin) {
-        return NextResponse.json(
-          { ok: false, message: "Admin authentication required" },
-          { status: 403 }
-        );
-      }
+      if (!admin) return adminUnauthorized();
       if (isPinned !== undefined) updates.isPinned = Boolean(isPinned);
       if (isFeatured !== undefined) updates.isFeatured = Boolean(isFeatured);
     }

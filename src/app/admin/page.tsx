@@ -122,7 +122,7 @@ interface SiteConfig {
   adminIdentity?: AdminIdentity | null
 }
 
-type Tab = "comments" | "users" | "review" | "settings" | "data" | "changelog"
+type Tab = "comments" | "users" | "review" | "settings" | "changelog"
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false)
@@ -319,12 +319,26 @@ export default function AdminPage() {
       })
       const data = await res.json()
       if (res.ok && data.ok) {
-        setAuthed(true)
         setPassword("")
+        // 校验 Cookie 是否真的生效：Serverless 环境缺少 AUTH_SECRET 时，
+        // 这里会出现「登录成功但下一个请求立刻 403」，只在登录后才发现会非常难排查
+        const check = await fetch("/api/admin", { method: "GET" })
+        if (!check.ok) {
+          let msg = "登录状态未能保持，请检查服务端 AUTH_SECRET 配置是否正确"
+          try {
+            const err = await check.json()
+            if (err?.message) msg = err.message
+          } catch {
+            // ignore
+          }
+          toast.error(msg, { duration: 12000 })
+          return
+        }
+        setAuthed(true)
         toast.success("登录成功")
         await Promise.all([fetchComments(), fetchAdminData()])
       } else {
-        toast.error(data.message || "密码错误")
+        toast.error(data.message || "密码错误", { duration: 10000 })
       }
     } catch {
       toast.error("登录失败，请重试")
@@ -553,30 +567,53 @@ export default function AdminPage() {
     }
   }
 
-  // Settings save
-  const saveSettings = async () => {
+  // 统一的配置保存请求：把服务端真实原因带回前端，并在登录态失效时退回登录页
+  const postConfig = async (
+    payload: Record<string, unknown>
+  ): Promise<{ ok: boolean; message: string }> => {
     try {
       const res = await fetch("/api/admin/notify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: notifyEmail,
-          enabled: notifyEnabled,
-          template: notifyTemplate,
-          smtpHost,
-          smtpPort: Number(smtpPort) || 465,
-          smtpUser,
-          smtpPass,
-        }),
+        body: JSON.stringify(payload),
       })
-      if (res.ok) {
-        toast.success("设置已保存，可手动刷新查看最新内容")
-        await fetchAdminData()
-      } else {
-        toast.error("保存失败")
+      let data: any = null
+      try {
+        data = await res.json()
+      } catch {
+        // ignore
       }
-    } catch {
-      toast.error("保存失败")
+      if (res.ok && data?.ok !== false) {
+        return { ok: true, message: data?.message || "已保存" }
+      }
+      if (res.status === 403) {
+        setAuthed(false)
+      }
+      return {
+        ok: false,
+        message: data?.message || `保存失败（HTTP ${res.status}）`,
+      }
+    } catch (err: any) {
+      return { ok: false, message: `请求失败：${err?.message || "网络异常"}` }
+    }
+  }
+
+  // Settings save
+  const saveSettings = async () => {
+    const r = await postConfig({
+      email: notifyEmail,
+      enabled: notifyEnabled,
+      template: notifyTemplate,
+      smtpHost,
+      smtpPort: Number(smtpPort) || 465,
+      smtpUser,
+      smtpPass,
+    })
+    if (r.ok) {
+      toast.success("设置已保存，可手动刷新查看最新内容")
+      await fetchAdminData()
+    } else {
+      toast.error(r.message)
     }
   }
 
@@ -600,14 +637,15 @@ export default function AdminPage() {
           testEmail: notifyEmail || smtpUser,
         }),
       })
-      const data = await res.json()
-      if (data.ok) {
+      const data = await res.json().catch(() => null)
+      if (res.status === 403) setAuthed(false)
+      if (data?.ok) {
         toast.success(data.message || "SMTP 连接成功")
       } else {
-        toast.error(data.message || "测试失败")
+        toast.error(data?.message || `测试失败（HTTP ${res.status}）`, { duration: 12000 })
       }
-    } catch {
-      toast.error("测试失败")
+    } catch (err: any) {
+      toast.error(`测试失败：${err?.message || "网络异常"}`)
     } finally {
       setTestingSmtp(false)
     }
@@ -654,44 +692,26 @@ export default function AdminPage() {
   // Footer save
   const saveFooter = async () => {
     setFooterLoading(true)
-    try {
-      const res = await fetch("/api/admin/notify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ footerHtml }),
-      })
-      if (res.ok) {
-        toast.success("页脚已保存，可手动刷新查看最新内容")
-        await fetchAdminData()
-      } else {
-        toast.error("页脚保存失败")
-      }
-    } catch {
-      toast.error("页脚保存失败")
-    } finally {
-      setFooterLoading(false)
+    const r = await postConfig({ footerHtml })
+    setFooterLoading(false)
+    if (r.ok) {
+      toast.success("页脚已保存，可手动刷新查看最新内容")
+      await fetchAdminData()
+    } else {
+      toast.error(r.message)
     }
   }
 
   // Presets save
   const savePresets = async () => {
     setPresetLoading(true)
-    try {
-      const res = await fetch("/api/admin/notify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ replyPresets }),
-      })
-      if (res.ok) {
-        toast.success("预设回复已保存")
-        await fetchAdminData()
-      } else {
-        toast.error("保存预设失败")
-      }
-    } catch {
-      toast.error("保存预设失败")
-    } finally {
-      setPresetLoading(false)
+    const r = await postConfig({ replyPresets })
+    setPresetLoading(false)
+    if (r.ok) {
+      toast.success("预设回复已保存")
+      await fetchAdminData()
+    } else {
+      toast.error(r.message)
     }
   }
 
@@ -708,46 +728,28 @@ export default function AdminPage() {
   // Comment placeholder save
   const savePlaceholder = async () => {
     setPlaceholderLoading(true)
-    try {
-      const res = await fetch("/api/admin/notify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ commentPlaceholder }),
-      })
-      if (res.ok) {
-        toast.success("留言占位符已保存，可手动刷新查看最新内容")
-        await fetchAdminData()
-      } else {
-        toast.error("保存失败")
-      }
-    } catch {
-      toast.error("保存失败")
-    } finally {
-      setPlaceholderLoading(false)
+    const r = await postConfig({ commentPlaceholder })
+    setPlaceholderLoading(false)
+    if (r.ok) {
+      toast.success("留言占位符已保存，可手动刷新查看最新内容")
+      await fetchAdminData()
+    } else {
+      toast.error(r.message)
     }
   }
 
   // Comment expand save
   const saveCommentExpand = async () => {
     setExpandLoading(true)
-    try {
-      const res = await fetch("/api/admin/notify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          commentExpand: { enabled: expandEnabled, count: expandCount, depth: expandDepth },
-        }),
-      })
-      if (res.ok) {
-        toast.success("评论展开设置已保存，刷新前台即可生效")
-        await fetchAdminData()
-      } else {
-        toast.error("保存失败")
-      }
-    } catch {
-      toast.error("保存失败")
-    } finally {
-      setExpandLoading(false)
+    const r = await postConfig({
+      commentExpand: { enabled: expandEnabled, count: expandCount, depth: expandDepth },
+    })
+    setExpandLoading(false)
+    if (r.ok) {
+      toast.success("评论展开设置已保存，刷新前台即可生效")
+      await fetchAdminData()
+    } else {
+      toast.error(r.message)
     }
   }
 
@@ -759,15 +761,11 @@ export default function AdminPage() {
 
   const handleThemeChange = async (name: string) => {
     setThemePreset(name)
-    try {
-      await fetch("/api/admin/notify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ themePreset: name }),
-      })
+    const r = await postConfig({ themePreset: name })
+    if (r.ok) {
       toast.success("主题已切换，可手动刷新查看最新内容")
-    } catch {
-      toast.error("主题切换失败")
+    } else {
+      toast.error(r.message)
     }
   }
 
@@ -1027,10 +1025,9 @@ export default function AdminPage() {
           {([
             { key: "comments", label: "留言管理", icon: MessageSquare },
             { key: "users", label: "用户列表", icon: Users },
+            { key: "changelog", label: "更新日志", icon: FileText },
             { key: "review", label: "评论设置", icon: MessagesSquare },
             { key: "settings", label: "系统设置", icon: Settings },
-            { key: "data", label: "数据备份", icon: Download },
-            { key: "changelog", label: "更新日志", icon: FileText },
           ] as { key: Tab; label: string; icon: any }[]).map(tab => (
             <button
               key={tab.key}
@@ -1049,7 +1046,7 @@ export default function AdminPage() {
       </div>
 
       {/* Content */}
-      <main className="flex-1 max-w-3xl mx-auto w-full px-4 py-6">
+      <main className={`flex-1 w-full px-4 py-6 mx-auto ${activeTab === "review" || activeTab === "settings" ? "max-w-6xl" : "max-w-3xl"}`}>
         {/* Comments tab */}
         {activeTab === "comments" && (
           <div>
@@ -1403,7 +1400,8 @@ export default function AdminPage() {
 
         {/* Review tab — 评论设置 */}
         {activeTab === "review" && (
-          <div className="max-w-xl space-y-4">
+          <div className="w-full">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
             {/* 单页面评论展开 */}
             <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4">
               <div className="flex items-start justify-between gap-4">
@@ -1562,12 +1560,14 @@ export default function AdminPage() {
                 保存预设
               </button>
             </div>
+            </div>
           </div>
         )}
 
         {/* Settings tab */}
         {activeTab === "settings" && (
-          <div className="max-w-xl space-y-4">
+          <div className="w-full">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
             {/* Theme color */}
             <div className="bg-white rounded-lg border border-stone-200 p-6">
               <div className="flex items-center gap-2 mb-4">
@@ -1759,6 +1759,9 @@ export default function AdminPage() {
                       placeholder="邮箱 SMTP 授权码（非登录密码）"
                       className="w-full px-3 py-1.5 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
                     />
+                    {smtpPass.includes("•") && (
+                      <p className="text-xs text-stone-400 mt-1">已保存，留空或保持原样即不修改</p>
+                    )}
                   </div>
                 </div>
                 <p className="text-xs text-stone-400">
@@ -1836,7 +1839,7 @@ export default function AdminPage() {
               <textarea
                 value={footerHtml}
                 onChange={e => setFooterHtml(e.target.value)}
-                placeholder={`<p class="text-xs text-stone-400">Powered by <span class="font-medium">Yuamli</span> v1.0.5</p>`}
+                placeholder={`<p class="text-xs text-stone-400">Powered by <span class="font-medium">Yuamli</span> v1.1.1</p>`}
                 rows={3}
                 className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm font-mono"
               />
@@ -1852,12 +1855,8 @@ export default function AdminPage() {
                 保存页脚
               </button>
             </div>
-          </div>
-        )}
 
-        {/* Data tab */}
-        {activeTab === "data" && (
-          <div className="max-w-xl space-y-4">
+            {/* 导出数据 */}
             <div className="bg-white rounded-lg border border-stone-200 p-6">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-lg bg-[var(--theme-accent-50)] flex items-center justify-center">
@@ -1877,6 +1876,7 @@ export default function AdminPage() {
               </button>
             </div>
 
+            {/* 导入数据 */}
             <div className="bg-white rounded-lg border border-stone-200 p-6">
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-10 h-10 rounded-lg bg-stone-100 flex items-center justify-center">
@@ -1892,6 +1892,7 @@ export default function AdminPage() {
                 选择文件导入
                 <input type="file" accept=".json" onChange={handleImport} className="hidden" />
               </label>
+            </div>
             </div>
           </div>
         )}
@@ -1954,7 +1955,7 @@ export default function AdminPage() {
                     <input
                       value={newLogVersion}
                       onChange={e => setNewLogVersion(e.target.value)}
-                      placeholder="如 v1.1.0"
+                      placeholder="如 v1.1.1"
                       className="w-full px-3 py-1.5 rounded-lg border border-stone-300 text-sm outline-none focus:border-[var(--theme-accent)] font-mono"
                     />
                   </div>
@@ -1999,7 +2000,7 @@ export default function AdminPage() {
           {config?.footerHtml ? (
             <div dangerouslySetInnerHTML={{ __html: config.footerHtml }} />
           ) : (
-            <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.1.0</p>
+            <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.1.1</p>
           )}
         </div>
       </footer>

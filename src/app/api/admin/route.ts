@@ -6,6 +6,9 @@ import {
   isAdminAuthenticated,
   adminAuthResponse,
   clearAdminResponse,
+  adminUnauthorized,
+  isAuthSecretStable,
+  MISSING_SECRET_MESSAGE,
 } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
@@ -29,6 +32,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 没有稳定密钥时，签发的 Cookie 在 Serverless 多实例间无法验签，
+    // 会出现「登录成功但之后全部 403」，这里直接给出可执行的报错。
+    if (process.env.NODE_ENV === "production" && !isAuthSecretStable()) {
+      return NextResponse.json(
+        { ok: false, message: MISSING_SECRET_MESSAGE },
+        { status: 500 }
+      );
+    }
+
     return adminAuthResponse({ ok: true });
   } catch {
     return NextResponse.json(
@@ -41,12 +53,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   try {
     const admin = await isAdminAuthenticated();
-    if (!admin) {
-      return NextResponse.json(
-        { ok: false, message: "Admin authentication required" },
-        { status: 403 }
-      );
-    }
+    if (!admin) return adminUnauthorized();
 
     const users = await getUsers();
     const config = await getConfig();
@@ -54,6 +61,8 @@ export async function GET() {
     const safeConfig = {
       ...config,
       adminPassword: "******",
+      // 授权码不回传明文，前端拿到掩码即表示「未改动」
+      smtpPass: config.smtpPass ? "••••••••••••" : "",
     };
 
     return NextResponse.json({ users, config: safeConfig });
@@ -69,12 +78,7 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
   try {
     const admin = await isAdminAuthenticated();
-    if (!admin) {
-      return NextResponse.json(
-        { ok: false, message: "Admin authentication required" },
-        { status: 403 }
-      );
-    }
+    if (!admin) return adminUnauthorized();
 
     const body = await request.json();
     const { password, newPassword } = body;
@@ -116,12 +120,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE() {
   try {
     const admin = await isAdminAuthenticated();
-    if (!admin) {
-      return NextResponse.json(
-        { ok: false, message: "Admin authentication required" },
-        { status: 403 }
-      );
-    }
+    if (!admin) return adminUnauthorized();
 
     return clearAdminResponse({ ok: true });
   } catch {

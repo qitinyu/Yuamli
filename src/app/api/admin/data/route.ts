@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isAdminAuthenticated } from "@/lib/auth";
+import { isAdminAuthenticated, adminUnauthorized } from "@/lib/auth";
 import { readData, writeData } from "@/lib/adapter";
 
 // GET /api/admin/data — Export all data as a downloadable JSON backup
 export async function GET() {
   try {
     const admin = await isAdminAuthenticated();
-    if (!admin) {
-      return NextResponse.json(
-        { ok: false, message: "Admin authentication required" },
-        { status: 403 }
-      );
-    }
+    if (!admin) return adminUnauthorized();
 
     // Read all data stores in parallel
     const [comments, users, config, changelog] = await Promise.all([
@@ -56,12 +51,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const admin = await isAdminAuthenticated();
-    if (!admin) {
-      return NextResponse.json(
-        { ok: false, message: "Admin authentication required" },
-        { status: 403 }
-      );
-    }
+    if (!admin) return adminUnauthorized();
 
     const body = await request.json();
     const { comments, users, config, changelog, mode } = body;
