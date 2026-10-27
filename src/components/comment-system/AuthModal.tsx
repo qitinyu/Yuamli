@@ -21,7 +21,6 @@ import {
   HeartHandshake,
   Mail,
   ShieldCheck,
-  Lock,
   LogIn,
 } from "lucide-react"
 
@@ -51,8 +50,8 @@ export default function AuthModal() {
   const [providers, setProviders] = useState<string[]>([])
   const [emailEnabled, setEmailEnabled] = useState(false)
 
-  // 游客（邮箱）登录：账号 + 密码 + 验证码
-  const [form, setForm] = useState({ email: "", password: "", code: "" })
+  // 游客（邮箱）登录：账号 + 验证码（免密）
+  const [form, setForm] = useState({ email: "", code: "" })
   const [sending, setSending] = useState(false)
   const [countdown, setCountdown] = useState(0)
   const [rememberMe, setRememberMe] = useState(false)
@@ -162,17 +161,13 @@ export default function AuthModal() {
     }
   }
 
-  // ===== 游客登录：邮箱 + 密码 + 验证码 =====
+  // ===== 游客登录：邮箱 + 验证码 =====
   const handleGuestSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormError("")
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
       setFormError("请输入有效的邮箱地址")
-      return
-    }
-    if (form.password.length < 6) {
-      setFormError("密码至少 6 个字符")
       return
     }
     if (!/^\d{6}$/.test(form.code)) {
@@ -187,7 +182,6 @@ export default function AuthModal() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: form.email.trim(),
-          password: form.password,
           code: form.code,
           remember: rememberMe,
         }),
@@ -200,12 +194,10 @@ export default function AuthModal() {
 
       setUser(data.user)
       setShowAuthModal(false)
-      setForm({ email: "", password: "", code: "" })
+      setForm({ email: "", code: "" })
 
       if (data.mode === "register") {
         toast.success(`账号已创建，欢迎 ${data.user.name}！`)
-      } else if (data.mode === "reset") {
-        toast.success("验证码校验通过，密码已更新并登录")
       } else {
         toast.success(`欢迎回来，${data.user.name}！`)
       }
@@ -282,13 +274,9 @@ export default function AuthModal() {
             </div>
           </TabsContent>
 
-          {/* ===== 游客登录：邮箱 + 密码 + 验证码 ===== */}
+          {/* ===== 游客登录：邮箱 + 验证码（免密） ===== */}
           <TabsContent value="guest">
             <form onSubmit={handleGuestSubmit} className="space-y-3 pt-2">
-              <p className="text-xs text-center text-muted-foreground">
-                邮箱即账号，验证码用于注册与找回密码
-              </p>
-
               <div className="space-y-1.5">
                 <Label htmlFor="guest-email" className="text-xs">
                   账号（邮箱）
@@ -304,27 +292,6 @@ export default function AuthModal() {
                     value={form.email}
                     onChange={(e) => {
                       setForm({ ...form, email: e.target.value })
-                      setFormError("")
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="guest-password" className="text-xs">
-                  密码（自定义，至少 6 位）
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="guest-password"
-                    type="password"
-                    autoComplete="current-password"
-                    placeholder="输入或设置你的密码"
-                    className="pl-8"
-                    value={form.password}
-                    onChange={(e) => {
-                      setForm({ ...form, password: e.target.value })
                       setFormError("")
                     }}
                   />
@@ -401,12 +368,6 @@ export default function AuthModal() {
                 <LogIn className="h-4 w-4" />
                 {loading ? "处理中..." : "登录 / 注册"}
               </Button>
-
-              <p className="text-[11px] text-center text-muted-foreground leading-relaxed">
-                首次使用会自动创建账号；忘记密码时，
-                <br />
-                获取验证码后直接输入新密码登录即可重置。
-              </p>
             </form>
           </TabsContent>
         </Tabs>

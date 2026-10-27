@@ -46,6 +46,9 @@
 
 :root {
   --radius: 0.625rem;
+  /* 系统字体栈：替代 next/font/google 的 Geist（避免构建时联网抓 Google Fonts 失败） */
+  --font-geist-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-geist-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
   /* Theme accent colors — defaults to 樱花粉 */
   --theme-accent: #DF9193;
   --theme-accent-hover: #C47A7C;
@@ -84,6 +87,15 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+}
+
+/* 嵌入模式：剥离留言表单外层白卡片（边框/阴影/圆角），与宿主博客卡片融合 */
+html[data-embed="1"] .comment-form-shell {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
 }
 
 .dark {

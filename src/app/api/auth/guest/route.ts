@@ -6,28 +6,20 @@ import {
   getUserByEmail,
   getUserByOAuthId,
   addUser,
-  updateUser,
   type User,
 } from "@/lib/storage";
-import {
-  hashPassword,
-  verifyPassword,
-  needsRehash,
-  sessionResponse,
-} from "@/lib/auth";
+import { sessionResponse } from "@/lib/auth";
 
 /**
- * POST /api/auth/guest — 邮箱即游客账号（注册 / 登录 / 重置密码 三合一）
+ * POST /api/auth/guest — 邮箱即账号（免密登录：验证码即身份）
  *
- * Body: { email, password, code, remember? }
+ * Body: { email, code, remember? }
  *
  * 前置：验证码必须正确（由 /api/auth/email/send 发出）
- * - 账号不存在        → 用当前密码注册并登录   mode = "register"
- * - 账号存在且密码正确 → 直接登录             mode = "login"
- * - 账号存在但密码错误 → 用验证码重置密码后登录 mode = "reset"
+ * - 账号不存在 → 自动注册并登录  mode = "register"
+ * - 账号存在   → 直接登录        mode = "login"
  *
- * 验证码本身已证明邮箱归属，因此「忘记密码」无需额外流程：
- * 直接获取验证码 + 输入新密码即可重置。
+ * 验证码已证明邮箱归属，游客无需记忆密码。
  */
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -38,19 +30,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const email =
       typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
-    const password = typeof body?.password === "string" ? body.password : "";
     const code = typeof body?.code === "string" ? body.code.trim() : "";
     const remember = body?.remember === true;
 
     if (!EMAIL_RE.test(email)) {
       return NextResponse.json(
         { ok: false, error: "请输入有效的邮箱地址" },
-        { status: 400 }
-      );
-    }
-    if (password.length < 6) {
-      return NextResponse.json(
-        { ok: false, error: "密码至少 6 个字符" },
         { status: 400 }
       );
     }
@@ -106,32 +91,11 @@ export async function POST(request: NextRequest) {
       user = await getUserByOAuthId(`email_${email}`);
     }
 
-    // ===== 3. 登录 / 重置密码 / 注册 =====
+    // ===== 3. 登录 =====
     if (user) {
-      const passwordMatches = verifyPassword(password, user.password);
-
-      if (passwordMatches && !needsRehash(user.password)) {
-        return sessionResponse(
-          { ok: true, user: toSessionUser(user), mode: "login" },
-          toSessionUser(user),
-          maxAge
-        );
-      }
-
-      // 密码不匹配（或旧哈希需要升级）→ 以验证码为准重置/升级密码
-      const updated = await updateUser(user.id, {
-        password: hashPassword(password),
-        ...(user.email ? {} : { email }),
-      });
-      const finalUser = updated || user;
-
       return sessionResponse(
-        {
-          ok: true,
-          user: toSessionUser(finalUser),
-          mode: passwordMatches ? "login" : "reset",
-        },
-        toSessionUser(finalUser),
+        { ok: true, user: toSessionUser(user), mode: "login" },
+        toSessionUser(user),
         maxAge
       );
     }
@@ -144,7 +108,6 @@ export async function POST(request: NextRequest) {
       email,
       avatar: "",
       type: "email",
-      password: hashPassword(password),
       createdAt: now,
     };
     await addUser(newUser);

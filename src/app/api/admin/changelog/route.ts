@@ -7,7 +7,8 @@ import path from "path";
 const CHANGELOG_KEY = "changelog";
 
 const DEFAULT_CHANGELOG: Array<{ version: string; content: string }> = [
-  { version: "v1.2.0", content: "后台改为左侧侧边栏布局（移动端点 logo 展开抽屉）；系统设置新增「个性化」卡片，主题色并入，新增后台标题模式（单图标/单文本，勾一显一、勾二显二）" },
+  { version: "v1.1.3", content: "游客登录改为邮箱验证码免密登录（移除密码），简化登录面板" },
+  { version: "v1.1.2", content: "后台改为左侧侧边栏布局（移动端点 logo 展开抽屉）；系统设置新增「个性化」卡片，主题色并入，新增后台标题模式（单图标/单文本，勾一显一、勾二显二）" },
   { version: "v1.1.1", content: "后台导航重排、评论设置与系统设置改为双列网格卡片、数据备份并入系统设置、修复 Serverless 环境保存失败并优化 SMTP 配置报错" },
   { version: "v1.1.0", content: "签名 Cookie 会话、scrypt 密码、登录渠道调整为 GitHub + GitCode（移除 Gitee）、邮箱并入游客登录、留言表单三区改版（表情 / 颜文字 / 个人网址）、全站图标更新" },
   { version: "v1.0.7", content: "更新日志独立文件编辑、主题色热切换、logo 修复、预设修复、按钮对齐优化" },

@@ -1960,7 +1960,7 @@ export default function AdminPage() {
               <textarea
                 value={footerHtml}
                 onChange={e => setFooterHtml(e.target.value)}
-                placeholder={`<p class="text-xs text-stone-400">Powered by <span class="font-medium">Yuamli</span> v1.2.0</p>`}
+                placeholder={`<p class="text-xs text-stone-400">Powered by <span class="font-medium">Yuamli</span> v1.1.3</p>`}
                 rows={3}
                 className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm font-mono"
               />
@@ -2177,7 +2177,7 @@ export default function AdminPage() {
                     <input
                       value={newLogVersion}
                       onChange={e => setNewLogVersion(e.target.value)}
-                      placeholder="如 v1.2.0"
+                      placeholder="如 v1.1.3"
                       className="w-full px-3 py-1.5 rounded-lg border border-stone-300 text-sm outline-none focus:border-[var(--theme-accent)] font-mono"
                     />
                   </div>
@@ -2222,7 +2222,7 @@ export default function AdminPage() {
           {config?.footerHtml ? (
             <div dangerouslySetInnerHTML={{ __html: config.footerHtml }} />
           ) : (
-            <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.2.0</p>
+            <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.1.3</p>
           )}
         </div>
       </footer>

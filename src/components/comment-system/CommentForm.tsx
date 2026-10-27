@@ -163,7 +163,7 @@ export default function CommentForm({
   const account = user ? user.email || user.id : "未登录"
 
   return (
-    <div className="overflow-hidden rounded-xl border border-[var(--theme-accent-border)] bg-white shadow-sm">
+    <div className="comment-form-shell overflow-hidden rounded-xl border border-[var(--theme-accent-border)] bg-white shadow-sm">
       {/* ===== 上：信息区 ===== */}
       <div className="flex items-center gap-2 border-b border-[var(--theme-accent-border)]/50 bg-[var(--theme-accent-50)] px-3 py-2.5">
         <Avatar className="h-8 w-8 shrink-0">
