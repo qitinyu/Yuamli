@@ -33,6 +33,12 @@ const DEFAULT_CONFIG = {
     count: "none",
     depth: 6,
   } as { enabled: boolean; count: "all" | "none" | "5"; depth: 2 | 4 | 6 },
+  adminTitle: {
+    showIcon: true,
+    showText: true,
+    iconUrl: "",
+    titleText: "后台管理",
+  } as { showIcon: boolean; showText: boolean; iconUrl: string; titleText: string },
 };
 
 // ==================== Vercel KV (Upstash Redis REST API) ====================

@@ -43,6 +43,11 @@ import {
   type ExpandCount,
   type ExpandDepth,
 } from "@/lib/comment-expand"
+import {
+  DEFAULT_ADMIN_TITLE,
+  normalizeAdminTitle,
+  type AdminTitleConfig,
+} from "@/lib/admin-title"
 
 const OAUTH_PROVIDER_LABELS: Record<string, string> = {
   github: "GitHub",
@@ -119,10 +124,19 @@ interface SiteConfig {
     count: ExpandCount
     depth: ExpandDepth
   }
+  adminTitle?: AdminTitleConfig
   adminIdentity?: AdminIdentity | null
 }
 
 type Tab = "comments" | "users" | "review" | "settings" | "changelog"
+
+const NAV_ITEMS: { key: Tab; label: string; icon: any }[] = [
+  { key: "comments", label: "留言管理", icon: MessageSquare },
+  { key: "users", label: "用户列表", icon: Users },
+  { key: "changelog", label: "更新日志", icon: FileText },
+  { key: "review", label: "评论设置", icon: MessagesSquare },
+  { key: "settings", label: "系统设置", icon: Settings },
+]
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false)
@@ -201,6 +215,13 @@ export default function AdminPage() {
   const [oauthProviders, setOauthProviders] = useState<string[]>([])
   const [identityLoading, setIdentityLoading] = useState(false)
 
+  // 后台标题模式（系统设置 → 个性化）
+  const [adminTitle, setAdminTitle] = useState<AdminTitleConfig>(DEFAULT_ADMIN_TITLE)
+  const [personalizeLoading, setPersonalizeLoading] = useState(false)
+
+  // 移动端侧边栏抽屉开关
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
   const inited = useRef(false)
 
   const fetchComments = async () => {
@@ -241,6 +262,7 @@ export default function AdminPage() {
           setExpandEnabled(ce.enabled)
           setExpandCount(ce.count)
           setExpandDepth(ce.depth)
+          setAdminTitle(normalizeAdminTitle(data.config?.adminTitle))
         }
       }
     } catch {
@@ -272,6 +294,7 @@ export default function AdminPage() {
           setExpandEnabled(ce.enabled)
           setExpandCount(ce.count)
           setExpandDepth(ce.depth)
+          setAdminTitle(normalizeAdminTitle(data.config?.adminTitle))
           await fetchComments()
         }
       }
@@ -769,6 +792,54 @@ export default function AdminPage() {
     }
   }
 
+  // 后台标题模式 — 保存（个性化）
+  const savePersonalization = async () => {
+    setPersonalizeLoading(true)
+    const r = await postConfig({ adminTitle })
+    setPersonalizeLoading(false)
+    if (r.ok) {
+      toast.success("个性化设置已保存")
+      await fetchAdminData()
+    } else {
+      toast.error(r.message)
+    }
+  }
+
+  // 本地选取图标：读取 → 等比裁剪为 80×80（40px 的 2x 视网膜）→ data URL 存入配置
+  const handleIconFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith("image/")) {
+      toast.error("请选择图片文件")
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      const src = String(reader.result)
+      const img = new Image()
+      img.onload = () => {
+        const size = 80
+        const canvas = document.createElement("canvas")
+        canvas.width = size
+        canvas.height = size
+        const ctx = canvas.getContext("2d")
+        if (!ctx) {
+          setAdminTitle(prev => ({ ...prev, iconUrl: src }))
+          return
+        }
+        const min = Math.min(img.width, img.height)
+        const sx = (img.width - min) / 2
+        const sy = (img.height - min) / 2
+        ctx.drawImage(img, sx, sy, min, min, 0, 0, size, size)
+        setAdminTitle(prev => ({ ...prev, iconUrl: canvas.toDataURL("image/png") }))
+      }
+      img.onerror = () => toast.error("图片读取失败")
+      img.src = src
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ""
+  }
+
   // Changelog operations
   const fetchChangelog = async () => {
     setChangelogLoading(true)
@@ -894,6 +965,37 @@ export default function AdminPage() {
     })
   }
 
+  // 后台品牌区（侧边栏顶部 / 移动端顶栏）：随「后台标题模式」渲染
+  const renderBrand = () => (
+    <>
+      {adminTitle.showIcon && (
+        adminTitle.iconUrl ? (
+          <img
+            src={adminTitle.iconUrl}
+            alt=""
+            className="w-10 h-10 rounded-lg object-cover shrink-0"
+          />
+        ) : (
+          <div className="w-10 h-10 rounded-lg bg-[var(--theme-accent)] flex items-center justify-center shrink-0">
+            <Shield className="h-5 w-5 text-white" />
+          </div>
+        )
+      )}
+      {adminTitle.showText && (
+        <span className="text-2xl font-semibold tracking-tight text-stone-900 truncate leading-none">
+          {adminTitle.titleText || "后台管理"}
+        </span>
+      )}
+    </>
+  )
+
+  // 切换 tab（移动端切走后收起抽屉）
+  const switchTab = (tab: Tab) => {
+    setActiveTab(tab)
+    if (tab === "changelog") fetchChangelog()
+    setSidebarOpen(false)
+  }
+
   // ===== Loading screen =====
   if (loading) {
     return (
@@ -990,56 +1092,96 @@ export default function AdminPage() {
 
   // ===== Admin dashboard =====
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-stone-50 to-white" style={activeThemeStyle as React.CSSProperties}>
-      {/* Header + Tabs (合并为一栏) */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center gap-2">
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-[var(--theme-accent)] flex items-center justify-center">
-              <Shield className="h-4 w-4 text-white" />
-            </div>
-            <h1 className="text-base font-semibold tracking-tight hidden md:block">后台管理</h1>
-          </div>
-          <nav className="flex items-center gap-1 overflow-x-auto flex-1 min-w-0">
-            {([
-              { key: "comments", label: "留言管理", icon: MessageSquare },
-              { key: "users", label: "用户列表", icon: Users },
-              { key: "changelog", label: "更新日志", icon: FileText },
-              { key: "review", label: "评论设置", icon: MessagesSquare },
-              { key: "settings", label: "系统设置", icon: Settings },
-            ] as { key: Tab; label: string; icon: any }[]).map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => { setActiveTab(tab.key); if (tab.key === "changelog") fetchChangelog() }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-                  activeTab === tab.key
-                    ? "bg-[var(--theme-accent-50)] text-[var(--theme-accent-text)]"
-                    : "text-stone-500 hover:text-stone-700 hover:bg-stone-100"
-                }`}
-              >
-                <tab.icon className="h-4 w-4" />
-                {tab.label}
-              </button>
-            ))}
-          </nav>
-          <div className="flex items-center gap-1 shrink-0 -mr-1">
+    <div className="min-h-screen flex bg-gradient-to-b from-stone-50 to-white" style={activeThemeStyle as React.CSSProperties}>
+      {/* 移动端抽屉遮罩 */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* 左侧侧边栏：桌面端常驻，移动端为抽屉（点 logo 展开） */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-60 bg-white border-r border-stone-200 flex flex-col transition-transform duration-200 lg:static lg:z-auto lg:translate-x-0 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        {/* 品牌区（点击收起抽屉） */}
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className="flex items-center gap-2.5 px-5 h-16 border-b border-stone-100 shrink-0"
+        >
+          {renderBrand()}
+        </button>
+
+        {/* 导航 */}
+        <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
+          {NAV_ITEMS.map(tab => (
             <button
-              onClick={handleRefresh}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm text-stone-600 hover:bg-stone-100 transition-colors"
-              title="刷新数据"
+              key={tab.key}
+              onClick={() => switchTab(tab.key)}
+              className={`flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === tab.key
+                  ? "bg-[var(--theme-accent-50)] text-[var(--theme-accent-text)]"
+                  : "text-stone-600 hover:text-stone-900 hover:bg-stone-100"
+              }`}
             >
-              <RefreshCw className="h-4 w-4" />
+              <tab.icon className="h-4 w-4" />
+              {tab.label}
             </button>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm text-stone-600 hover:bg-stone-100 transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
-              退出
-            </button>
-          </div>
+          ))}
+        </nav>
+
+        {/* 底部操作 */}
+        <div className="border-t border-stone-100 p-3 space-y-1 shrink-0">
+          <button
+            onClick={handleRefresh}
+            className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm text-stone-600 hover:bg-stone-100 hover:text-stone-900 transition-colors"
+          >
+            <RefreshCw className="h-4 w-4" />
+            刷新数据
+          </button>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-sm text-stone-600 hover:bg-stone-100 hover:text-stone-900 transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            退出登录
+          </button>
         </div>
-      </header>
+      </aside>
+
+      {/* 右侧内容列 */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* 移动端顶栏（仅小屏显示，点 logo 展开侧边栏） */}
+        <header className="lg:hidden sticky top-0 z-30 border-b bg-white/80 backdrop-blur-sm">
+          <div className="flex items-center justify-between h-16 px-4">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="flex items-center gap-2.5 min-w-0"
+              aria-label="展开菜单"
+            >
+              {renderBrand()}
+            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={handleRefresh}
+                className="p-2 rounded-lg text-stone-600 hover:bg-stone-100 transition-colors"
+                title="刷新数据"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-lg text-stone-600 hover:bg-stone-100 transition-colors"
+                title="退出登录"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </header>
 
       {/* Content */}
       <main className="flex-1 w-full px-4 py-6 mx-auto max-w-6xl">
@@ -1566,23 +1708,121 @@ export default function AdminPage() {
         {activeTab === "settings" && (
           <div className="w-full">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Theme color */}
-            <div className="bg-white rounded-lg border border-stone-200 p-6">
-              <div className="flex items-center gap-2 mb-4">
+            {/* 个性化：主题色 + 后台标题模式 */}
+            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-5 md:col-span-2">
+              <div className="flex items-center gap-2">
                 <Palette className="h-5 w-5 text-[var(--theme-accent)]" />
-                <h3 className="font-medium text-sm text-stone-900">主题色</h3>
+                <h3 className="font-medium text-sm text-stone-900">个性化</h3>
               </div>
-              <div className="flex items-center gap-3">
-                {THEME_PRESETS.map(p => (
-                  <button
-                    key={p.name}
-                    onClick={() => handleThemeChange(p.name)}
-                    className={`w-9 h-9 rounded-full border-2 transition-all ${themePreset === p.name ? "border-stone-800 scale-110" : "border-transparent hover:scale-105"}`}
-                    style={{ background: p.color }}
-                    title={p.name}
+
+              {/* 主题色 */}
+              <div className="border-t border-stone-100 pt-4">
+                <div className="text-sm text-stone-700 mb-3">主题色</div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {THEME_PRESETS.map(p => (
+                    <button
+                      key={p.name}
+                      onClick={() => handleThemeChange(p.name)}
+                      className={`w-9 h-9 rounded-full border-2 transition-all ${themePreset === p.name ? "border-stone-800 scale-110" : "border-transparent hover:scale-105"}`}
+                      style={{ background: p.color }}
+                      title={p.name}
+                    />
+                  ))}
+                  <span className="text-xs text-stone-400 ml-1">{themePreset}</span>
+                </div>
+              </div>
+
+              {/* 后台标题模式 */}
+              <div className="border-t border-stone-100 pt-4 space-y-4">
+                <div>
+                  <div className="text-sm text-stone-700">后台标题模式</div>
+                  <p className="text-xs text-stone-400 mt-0.5">勾选其一显示其一，勾选二者均显示</p>
+                </div>
+
+                {/* 单图标 */}
+                <div className="flex items-start gap-3">
+                  <Switch
+                    checked={adminTitle.showIcon}
+                    onCheckedChange={v => setAdminTitle(prev => ({ ...prev, showIcon: v }))}
+                    className="shrink-0 mt-0.5 data-[state=checked]:bg-[var(--theme-accent)]"
+                    aria-label="显示单图标"
                   />
-                ))}
-                <span className="text-xs text-stone-400 ml-1">{themePreset}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-stone-700 flex items-center gap-1.5">
+                      单图标
+                      <span className="text-xs text-stone-400">40 × 40 px</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      <input
+                        type="text"
+                        value={adminTitle.iconUrl.startsWith("data:") ? "" : adminTitle.iconUrl}
+                        onChange={e => setAdminTitle(prev => ({ ...prev, iconUrl: e.target.value }))}
+                        placeholder="图标 URL 链接"
+                        className="flex-1 min-w-[160px] px-3 py-1.5 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
+                      />
+                      <label className="px-3 py-1.5 rounded-lg border border-stone-300 text-stone-700 text-sm hover:bg-stone-50 transition-colors cursor-pointer shrink-0">
+                        本地选取
+                        <input type="file" accept="image/*" onChange={handleIconFile} className="hidden" />
+                      </label>
+                    </div>
+                    {adminTitle.iconUrl.startsWith("data:") && (
+                      <p className="text-xs text-stone-400 mt-1">已选取本地图片（会自动压缩为 80×80）</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* 单文本 */}
+                <div className="flex items-start gap-3">
+                  <Switch
+                    checked={adminTitle.showText}
+                    onCheckedChange={v => setAdminTitle(prev => ({ ...prev, showText: v }))}
+                    className="shrink-0 mt-0.5 data-[state=checked]:bg-[var(--theme-accent)]"
+                    aria-label="显示单文本"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-stone-700">单文本</div>
+                    <input
+                      type="text"
+                      value={adminTitle.titleText}
+                      onChange={e => setAdminTitle(prev => ({ ...prev, titleText: e.target.value }))}
+                      placeholder="自定义标题（如：后台管理）"
+                      className="w-full mt-1.5 px-3 py-1.5 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* 预览 */}
+                <div className="rounded-lg bg-stone-50 border border-stone-200 p-3">
+                  <div className="text-xs text-stone-400 mb-1.5">预览</div>
+                  <div className="flex items-center gap-2.5">
+                    {adminTitle.showIcon && (
+                      adminTitle.iconUrl ? (
+                        <img src={adminTitle.iconUrl} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg bg-[var(--theme-accent)] flex items-center justify-center shrink-0">
+                          <Shield className="h-5 w-5 text-white" />
+                        </div>
+                      )
+                    )}
+                    {adminTitle.showText && (
+                      <span className="text-2xl font-semibold tracking-tight text-stone-900 leading-none">
+                        {adminTitle.titleText || "后台管理"}
+                      </span>
+                    )}
+                    {!adminTitle.showIcon && !adminTitle.showText && (
+                      <span className="text-xs text-stone-300">未勾选，标题区将留空</span>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={savePersonalization}
+                  disabled={personalizeLoading}
+                  className="px-4 py-2 rounded-lg bg-[var(--theme-accent)] text-white text-sm font-medium hover:bg-[var(--theme-accent-hover)] transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {personalizeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  保存个性化
+                </button>
               </div>
             </div>
 
@@ -1709,7 +1949,7 @@ export default function AdminPage() {
             </div>
 
             {/* Footer editor */}
-            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4">
+            <div className="bg-white rounded-lg border border-stone-200 p-6 space-y-4 md:col-span-2">
               <div>
                 <h3 className="font-medium text-sm text-stone-900 mb-1 flex items-center gap-2">
                   <FileText className="h-5 w-5 text-[var(--theme-accent)]" />
@@ -1720,7 +1960,7 @@ export default function AdminPage() {
               <textarea
                 value={footerHtml}
                 onChange={e => setFooterHtml(e.target.value)}
-                placeholder={`<p class="text-xs text-stone-400">Powered by <span class="font-medium">Yuamli</span> v1.1.1</p>`}
+                placeholder={`<p class="text-xs text-stone-400">Powered by <span class="font-medium">Yuamli</span> v1.2.0</p>`}
                 rows={3}
                 className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:border-[var(--theme-accent)] focus:ring-2 focus:ring-[var(--theme-accent)] outline-none text-sm font-mono"
               />
@@ -1937,7 +2177,7 @@ export default function AdminPage() {
                     <input
                       value={newLogVersion}
                       onChange={e => setNewLogVersion(e.target.value)}
-                      placeholder="如 v1.1.1"
+                      placeholder="如 v1.2.0"
                       className="w-full px-3 py-1.5 rounded-lg border border-stone-300 text-sm outline-none focus:border-[var(--theme-accent)] font-mono"
                     />
                   </div>
@@ -1982,10 +2222,11 @@ export default function AdminPage() {
           {config?.footerHtml ? (
             <div dangerouslySetInnerHTML={{ __html: config.footerHtml }} />
           ) : (
-            <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.1.1</p>
+            <p className="text-xs text-stone-400">Powered by <span className="font-medium text-stone-600">Yuamli</span> v1.2.0</p>
           )}
         </div>
       </footer>
+      </div>
     </div>
   )
 }

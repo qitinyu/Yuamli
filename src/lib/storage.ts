@@ -1,6 +1,8 @@
 import { readData, writeData, DEFAULT_CONFIG } from "./adapter";
 import type { CommentExpandConfig } from "./comment-expand";
 import { normalizeCommentExpand } from "./comment-expand";
+import type { AdminTitleConfig } from "./admin-title";
+import { normalizeAdminTitle } from "./admin-title";
 
 export type OAuthType = "github" | "gitcode";
 export type UserType = OAuthType | "email" | "guest";
@@ -62,6 +64,8 @@ export interface SiteConfig {
   commentPlaceholder?: string;
   /** 单页面评论展开策略（后台「评论设置」） */
   commentExpand?: CommentExpandConfig;
+  /** 后台标题模式（后台「系统设置 → 个性化」） */
+  adminTitle?: AdminTitleConfig;
   adminIdentity?: AdminIdentity | null;
 }
 
@@ -212,6 +216,7 @@ export async function getConfig(): Promise<SiteConfig> {
   }
   // 旧配置文件没有该字段时补全为默认值，避免前台拿到 undefined
   config.commentExpand = normalizeCommentExpand(config.commentExpand);
+  config.adminTitle = normalizeAdminTitle(config.adminTitle);
   return config;
 }
 

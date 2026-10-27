@@ -3,6 +3,7 @@ import { getConfig, updateConfig } from "@/lib/storage";
 import { isAdminAuthenticated, adminUnauthorized } from "@/lib/auth";
 import { verifySmtp, sendNotifyEmail, isMaskedPass, SMTP_PASS_MASK } from "@/lib/email";
 import { normalizeCommentExpand } from "@/lib/comment-expand";
+import { normalizeAdminTitle } from "@/lib/admin-title";
 
 export async function POST(request: NextRequest) {
   try {
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save settings
-    const { email, enabled, template, smtpHost, smtpPort, smtpUser, smtpPass, footerHtml, replyPresets, themePreset, commentPlaceholder, commentExpand } = body;
+    const { email, enabled, template, smtpHost, smtpPort, smtpUser, smtpPass, footerHtml, replyPresets, themePreset, commentPlaceholder, commentExpand, adminTitle } = body;
     const updates: Record<string, unknown> = {};
     if (email !== undefined) updates.adminEmail = email;
     if (enabled !== undefined && typeof enabled === "boolean") updates.notifyEnabled = enabled;
@@ -74,6 +75,9 @@ export async function POST(request: NextRequest) {
     if (commentPlaceholder !== undefined && typeof commentPlaceholder === "string") updates.commentPlaceholder = commentPlaceholder;
     if (commentExpand !== undefined && typeof commentExpand === "object" && commentExpand) {
       updates.commentExpand = normalizeCommentExpand(commentExpand);
+    }
+    if (adminTitle !== undefined && typeof adminTitle === "object" && adminTitle) {
+      updates.adminTitle = normalizeAdminTitle(adminTitle);
     }
 
     let newConfig;
