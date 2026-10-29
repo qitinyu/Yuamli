@@ -98,7 +98,7 @@ export default function CommentList({
 
   if (!loading && comments.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+      <div className="comment-empty flex flex-col items-center justify-center py-16 text-muted-foreground">
         <MessageSquare className="h-12 w-12 mb-3 opacity-30" />
         <p className="text-sm">还没有留言，来抢沙发吧~</p>
       </div>

@@ -98,6 +98,12 @@ html[data-embed="1"] .comment-form-shell {
   overflow: visible;
 }
 
+/* 嵌入模式：留言为空/加载时上下留白收紧（py-16 放进宿主卡片会显得底下空一大块） */
+html[data-embed="1"] .comment-empty {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

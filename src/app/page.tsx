@@ -129,16 +129,39 @@ function CommentPage() {
     root.dataset.embed = "1"
 
     // 2) 高度上报：内容变化时把真实高度 postMessage 给宿主页面，消除 iframe 内部滚动条
+    //    注意：不能用 document.documentElement.scrollHeight —— 它至少等于 iframe 自身视口高度，
+    //    宿主按这个值把 iframe 撑高后，上报值又跟着变大，形成自锁（永远停在宿主给的 600px 兜底上）。
+    //    这里只量 body 自身的内容高度，与 iframe 视口无关，才能真正跟随留言条数变化（可增可减）。
+    let lastSent = -1
+    const measure = () => {
+      const rect = body.getBoundingClientRect().height
+      return Math.ceil(Math.max(rect, body.scrollHeight))
+    }
     const sendHeight = () => {
-      const h = Math.ceil(root.scrollHeight)
+      const h = measure()
+      if (h <= 0 || h === lastSent) return
+      lastSent = h
       window.parent?.postMessage({ type: "yuamli:height", height: h }, "*")
     }
+    // rAF 合并短时间内的多次变化，避免 MutationObserver 刷屏
+    let raf = 0
+    const schedule = () => {
+      if (raf) return
+      raf = requestAnimationFrame(() => { raf = 0; sendHeight() })
+    }
+
     window.parent?.postMessage({ type: "yuamli:ready" }, "*")
     sendHeight()
-    const ro = new ResizeObserver(sendHeight)
+
+    const ro = new ResizeObserver(schedule)
     ro.observe(body)
-    const mo = new MutationObserver(sendHeight)
-    mo.observe(body, { childList: true, subtree: true, attributes: true })
+    if (body.firstElementChild) ro.observe(body.firstElementChild)
+    const mo = new MutationObserver(schedule)
+    mo.observe(body, { childList: true, subtree: true, characterData: true, attributes: true })
+    window.addEventListener("resize", schedule)
+    // 字体/图片加载完、留言异步拉取完成后再补几次（ResizeObserver 覆盖不到的部分）
+    document.fonts?.ready.then(schedule).catch(() => {})
+    const timers = [300, 900, 2000].map(ms => window.setTimeout(schedule, ms))
 
     // 3) 接收宿主页面注入的配置（字体栈 / 明暗主题 / 强调色）
     const onMessage = (e: MessageEvent) => {
@@ -155,13 +178,15 @@ function CommentPage() {
       if (d.theme === "dark") root.classList.add("dark")
       else if (d.theme === "light") root.classList.remove("dark")
       // 主题变化后高度可能变化，重新上报
-      requestAnimationFrame(sendHeight)
+      requestAnimationFrame(schedule)
     }
     window.addEventListener("message", onMessage)
 
     return () => {
       ro.disconnect()
       mo.disconnect()
+      timers.forEach(t => window.clearTimeout(t))
+      window.removeEventListener("resize", schedule)
       window.removeEventListener("message", onMessage)
     }
   }, [embed])
